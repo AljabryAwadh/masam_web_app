@@ -33,27 +33,27 @@
 
 ## 3. Document Reference Numbering
 
-- Replace timestamp-only references with sequential team-based references.
+- Completed initial implementation: timestamp-only references were replaced with sequential team-based references.
 - Required formats:
   - `DWS_TEAM#_00001`
   - `OHC_TEAM#_00001`
   - `TJET-REG_TEAM#_00001`
   - `TJET-REC-EXP_TEAM#_001`
-- Create a counter mechanism in Google Sheets or Script Properties.
-- Ensure numbering is unique per form type and team number.
-- Add backend locking with `LockService` to prevent duplicate numbers during simultaneous submissions.
+- Counter mechanism now uses Script Properties.
+- Numbering is scoped by form type and team number.
+- Backend locking now uses `LockService` to reduce duplicate-number risk during simultaneous submissions.
 
 ## 4. PDF Generation
 
-- Current state: only DWS creates a PDF.
-- Add PDF generation for:
+- Completed initial implementation for all forms:
+  - DWS
   - OHC
   - TJET Registry
   - TJET Receipt & Expenditure
-- Save every generated PDF to Drive.
-- Append the PDF URL back into the relevant Google Sheets response row.
-- Use consistent PDF filenames based on `Doc_Ref_Number`.
-- Add a success modal link to the generated PDF for every form.
+- Every generated PDF is saved to the configured Drive PDF folder.
+- PDF URLs are appended to response rows.
+- PDF filenames use `Doc_Ref_Number`.
+- Success modals now receive generated PDF links.
 
 ## 5. Drive Folder Structure
 
@@ -62,7 +62,9 @@
 
 | Purpose | Folder Name | Folder ID |
 |---|---|---|
-| Image uploads | `ERW Images` | `1x_QaizeAmXCRn6RewqiqfNUpGw-zyYM4` |
+| DWS ERW image uploads | `ERW Images` | `1Je0rFpd7ypHmEMnn9BKwfTuZ8_Hd3zfo` |
+| OHC image uploads | `OHC Images` | `112GYzGGR6oBnR7uKio6yQxlTWusIDg9R` |
+| TJET Registry image uploads | `TJET Images` | `1woRKulJQ8JUdZjzOOuOV0wr_2XrjqWyF` |
 | DWS PDFs | `DWS PDF Forms` | `1muEnkn0yBbR-rbPPjQfXGiaQBV6peMBZ` |
 | OHC PDFs | `OHC PDF Forms` | `1UfNMCHK6CyxHd0ldRtVSS3agwcdPgEAC` |
 | TJET Registry PDFs | `TJET Registry PDF Forms` | `1SKzQ89MY2CL7HgkuENkN7-jk2G_Unxr0` |
@@ -102,13 +104,15 @@ MASAM Web App Responses/
 
 ## 6. Image Uploads
 
-- Current state: only DWS supports image upload.
+- Current state: DWS ERW Finds supports image upload.
+- Completed folder mapping update:
+  - DWS ERW Finds images use `ERW Images` folder ID `1Je0rFpd7ypHmEMnn9BKwfTuZ8_Hd3zfo`.
 - Add image upload support for:
   - OHC
   - TJET Registry
 - Decide whether TJET Receipt & Expenditure needs image upload. Current assumption: no.
 - Use client-side resizing before upload.
-- Save images to the correct Drive folder under the relevant document reference.
+- Save OHC and TJET Registry images to their correct Drive folders under the relevant document reference.
 - Add image URLs or `=IMAGE("...")` formulas to Google Sheets.
 - Recommended image naming format:
 
@@ -298,13 +302,13 @@ git push
 
 - Dashboard links open all forms.
 - Every form submits successfully.
-- Every form creates the correct `Doc_Ref_Number`.
+- Every form creates the correct `Doc_Ref_Number`. Initial implementation complete; real deployment testing still required.
 - Every form writes to the correct Google Sheet.
-- DWS creates PDF and uploads ERW images.
-- OHC creates PDF and uploads images after implementation.
-- TJET Registry creates PDF and uploads images after implementation.
-- TJET Receipt & Expenditure creates PDF after implementation.
-- PDF URLs are saved into response sheets.
+- DWS creates PDF and uploads ERW images to the confirmed ERW Images folder.
+- OHC creates PDF; image upload still pending.
+- TJET Registry creates PDF; image upload still pending.
+- TJET Receipt & Expenditure creates PDF.
+- PDF URLs are saved into response sheets. Real sheet column alignment still needs deployment testing.
 - Image URLs are saved into response sheets.
 - Drive folders are created correctly.
 - Dropdowns update after editing `Validation_Lists`.
@@ -314,13 +318,11 @@ git push
 
 ## 14. Priority Order
 
-1. Implement document reference numbering.
-2. Add PDF URL columns and save DWS PDF URL to Sheets.
-3. Add PDF generation for OHC, TJET Registry, and TJET Receipt & Expenditure.
-4. Add Drive folder structure.
-5. Add image upload for OHC and TJET Registry.
-6. Add `Validation_Lists` sheet and dynamic dropdown loading.
-7. Add backend validation.
-8. Improve responsiveness.
-9. Extend local simulator mocks.
-10. Final deployment and end-to-end testing.
+1. Test deployed DWS end-to-end with ERW image upload, PDF creation, and form reset.
+2. Confirm Google Sheets column alignment for appended PDF/image URL fields.
+3. Add image upload for OHC and TJET Registry.
+4. Add `Validation_Lists` sheet and dynamic dropdown loading.
+5. Add backend validation.
+6. Improve responsiveness.
+7. Extend local simulator mocks for dropdowns and image upload.
+8. Final deployment and end-to-end testing.

@@ -1,4 +1,6 @@
-const IMAGE_FOLDER_ID = '1x_QaizeAmXCRn6RewqiqfNUpGw-zyYM4'; // ERW Images
+const ERW_IMAGE_FOLDER_ID = '1Je0rFpd7ypHmEMnn9BKwfTuZ8_Hd3zfo'; // ERW Images
+const OHC_IMAGE_FOLDER_ID = '112GYzGGR6oBnR7uKio6yQxlTWusIDg9R'; // OHC Images
+const TJET_IMAGE_FOLDER_ID = '1woRKulJQ8JUdZjzOOuOV0wr_2XrjqWyF'; // TJET Images
 const DWS_PDF_FOLDER_ID = '1muEnkn0yBbR-rbPPjQfXGiaQBV6peMBZ'; // DWS PDF Forms
 const OHC_PDF_FOLDER_ID = '1UfNMCHK6CyxHd0ldRtVSS3agwcdPgEAC'; // OHC PDF Forms
 const TJET_REGISTRY_PDF_FOLDER_ID = '1SKzQ89MY2CL7HgkuENkN7-jk2G_Unxr0'; // TJET Registry PDF Forms
@@ -144,7 +146,7 @@ function processForm(formData) {
         const lonClean = (row.eoE || '0').replace(/[\s\.]+/g, '_');
         const itemNo = String(idx + 1).padStart(2, '0');
         const fileName = `${docRef}_${formData.teamNo}_${formData.date}_ERW${itemNo}_${row.eoType || 'EO'}_${latClean}_${lonClean}`;
-        imageUrl = saveToDrive(row.imageBase64, fileName);
+        imageUrl = saveToDrive(row.imageBase64, fileName, ERW_IMAGE_FOLDER_ID);
       }
       
       const imageFormula = imageUrl ? `=IMAGE("${imageUrl}")` : "No Image";
@@ -231,9 +233,9 @@ function processForm(formData) {
 /**
  * Saves base64 image data to Google Drive as a JPEG.
  */
-function saveToDrive(base64, name) {
+function saveToDrive(base64, name, folderId) {
   try {
-    const folder = DriveApp.getFolderById(IMAGE_FOLDER_ID);
+    const folder = DriveApp.getFolderById(folderId || ERW_IMAGE_FOLDER_ID);
     const contentType = base64.substring(5, base64.indexOf(';'));
     const bytes = Utilities.base64Decode(base64.split(',')[1]);
     const blob = Utilities.newBlob(bytes, contentType, name + ".jpg");

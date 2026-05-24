@@ -329,18 +329,20 @@
      * Dynamically adds a new ERW Find row to the UI
      */
     function addErwRow() {
+        const list = document.getElementById('erwList');
+        if (!list) return;
         const id = Date.now();
         const html = `
             <div class="erw-row shadow-sm border rounded p-3 mb-3 bg-white" id="row_${id}">
                 <div class="row g-2 align-items-center">
                     <div class="col-md-2">
                         <label class="d-md-none small fw-bold">EO Coordinates N / الإحداثيات الشمالية</label>
-                        <input type="text" class="form-control eoN coord-val" placeholder="16.21.20.61" required
+                        <input type="text" class="form-control eoN coord-val" placeholder="16.21.20.61"
                             pattern="^(1[2-8])\\.([0-5]\\d)\\.([0-5]\\d(\\.\\d+)?)$">
                     </div>
                     <div class="col-md-2">
                         <label class="d-md-none small fw-bold">EO Coordinates E / الإحداثيات الشرقية</label>
-                        <input type="text" class="form-control eoE coord-val" placeholder="042.52.35.58" required
+                        <input type="text" class="form-control eoE coord-val" placeholder="042.52.35.58"
                             pattern="^(0?4[2-9]|0?5[0-4])\\.([0-5]\\d)\\.([0-5]\\d(\\.\\d+)?)$">
                     </div>
                     <div class="col-md-2">
@@ -358,7 +360,7 @@
                     </div>
                     <div class="col-md-3">
                         <label class="d-md-none small fw-bold">EO Description / وصف</label>
-                        <input type="text" class="form-control eoDesc" placeholder="Description / Type model" required>
+                        <input type="text" class="form-control eoDesc" placeholder="Description / Type model">
                     </div>
                     <div class="col-md-1 text-center">
                         <label class="d-md-none small d-block">Removed / نقل</label>
@@ -382,7 +384,7 @@
                 </div>
             </div>
         `;
-        document.getElementById('erwList').insertAdjacentHTML('beforeend', html);
+        list.insertAdjacentHTML('beforeend', html);
     }
 
     /**
@@ -478,10 +480,39 @@
     document.getElementById('eodForm').onsubmit = async function(e) {
         e.preventDefault();
         
-        const rowElements = document.querySelectorAll('.erw-row');
+        const rowElements = Array.from(document.querySelectorAll('.erw-row'));
+        const activeErwRows = [];
         for (let row of rowElements) {
+            const eoN = row.querySelector('.eoN').value.trim();
+            const eoE = row.querySelector('.eoE').value.trim();
+            const eoDesc = row.querySelector('.eoDesc').value.trim();
+            const fileInput = row.querySelector('.eoFile').files[0];
             const rem = row.querySelector('.removed').checked;
             const left = row.querySelector('.leftOnSite').checked;
+            const hasAnyErwData = Boolean(eoN || eoE || eoDesc || fileInput || rem || left);
+
+            if (!hasAnyErwData) {
+                continue;
+            }
+
+            if (!eoN || !eoE || !eoDesc) {
+                showCustomModal(
+                    "Validation Error / خطأ في التحقق",
+                    "Please complete EO coordinates and description for each ERW find, or delete the empty row.",
+                    "error"
+                );
+                return;
+            }
+
+            if (!row.querySelector('.eoN').checkValidity() || !row.querySelector('.eoE').checkValidity()) {
+                showCustomModal(
+                    "Validation Error / خطأ في التحقق",
+                    "Please enter ERW coordinates in the required DMS format.",
+                    "error"
+                );
+                return;
+            }
+
             if (!rem && !left) {
                 showCustomModal(
                     "Validation Error / خطأ في التحقق", 
@@ -490,6 +521,8 @@
                 );
                 return;
             }
+
+            activeErwRows.push(row);
         }
 
         document.getElementById('loader').style.display = 'flex';
@@ -498,7 +531,7 @@
 
         const erwRows = [];
         try {
-            for (let row of rowElements) {
+            for (let row of activeErwRows) {
                 const fileInput = row.querySelector('.eoFile').files[0];
                 let base64 = "";
                 if (fileInput) {
@@ -520,7 +553,7 @@
                 google.script.run
                     .withSuccessHandler((res) => {
                         document.getElementById('loader').style.display = 'none';
-                        if (res.success) {
+                        if (res && res.success) {
                             showCustomModal(
                                 "Success! / تم الإرسال بنجاح", 
                                 "Worksheet submitted successfully. Unique Ref: " + res.ref, 
@@ -529,7 +562,7 @@
                             );
                             resetFullForm();
                         } else {
-                            showCustomModal("Submission Error", res.error, "error");
+                            showCustomModal("Submission Error", (res && res.error) || "Unknown submission error.", "error");
                         }
                     })
                     .withFailureHandler((err) => {
@@ -552,12 +585,16 @@
         }
     };
 
-    window.onload = function() {
-        addErwRow();
+    function initializeDwsForm() {
+        if (document.querySelectorAll('.erw-row').length === 0) {
+            addErwRow();
+        }
         const today = new Date().toISOString().split('T')[0];
         document.getElementsByName('date')[0].value = today;
         document.getElementsByName('taskStartDate')[0].value = today;
     }
+
+    document.addEventListener('DOMContentLoaded', initializeDwsForm);
 </script>
 
 <script>
