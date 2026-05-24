@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MASAM Web Portal - OHC</title>
+    <?!= include('SharedStyles'); ?>
+</head>
+<body>
+
+<?!= include('SharedHeader'); ?>
+
+<div class="container">
+    <div class="page-header shadow-sm">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <span class="badge bg-danger px-3 py-2 mb-2 text-uppercase fw-bold">Incident Prevention & Safety</span>
+                <h1 class="fw-bold mb-1">Operational Health & Safety (OHC)</h1>
+                <p class="text-white-50 mb-0">Manage onsite risk assessments, safety guidelines, and emergency action plans.</p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <button class="btn btn-danger font-semibold shadow-sm">+ New Risk Report</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Layout Shell Content -->
+    <div class="row g-4">
+        <div class="col-lg-8">
+        <div class="card p-4 mb-4">
+          <h4 class="fw-bold mb-3 text-slate-800">Ordnance Handover Certificate / شهادة تسليم الذخائر</h4>
+          <form id="ohcForm">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Date / التاريخ</label>
+              <input type="date" name="date" class="form-control" required>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Team # / الفريق</label>
+                <input type="text" name="teamNo" class="form-control" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Supervisor / المشرف</label>
+                <input type="text" name="supervisor" class="form-control" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Site / Task no / الموقع / المهمة رقم</label>
+                <input type="text" name="siteTaskNo" class="form-control" required>
+              </div>
+            </div>
+
+            <hr>
+            <h6 class="fw-semibold">List of EO Handedover / قائمة الذخائر المتفجرة التي تم تسليمها</h6>
+            <div id="itemsList" class="mb-3"></div>
+            <div class="d-flex gap-2 mb-3">
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="addItemRow()">+ Add Item</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearItemRows()">Clear Items</button>
+            </div>
+
+            <hr>
+            <h6 class="fw-semibold">Receipt Details / تفاصيل الاستلام</h6>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Recipient Name / اسم المستلم</label>
+              <input type="text" name="recipientName" class="form-control" required>
+            </div>
+
+            <div class="d-flex justify-content-between">
+              <button type="submit" class="btn btn-primary">Submit Certificate</button>
+              <button type="button" class="btn btn-outline-secondary" onclick="ohcReset()">Reset Form</button>
+            </div>
+          </form>
+        </div>
+        </div>
+          <div class="col-lg-4">
+            <div class="card p-4 border border-danger bg-danger bg-opacity-10 mb-4">
+                <h5 class="fw-bold text-danger mb-2">Emergency Contacts</h5>
+                <hr class="text-danger">
+                <p class="mb-1"><strong>Field Clinic Hot:</strong> +967-XX-XXXXXX</p>
+                <p class="mb-1"><strong>Medevac Dispatch:</strong> Channel VHF 16</p>
+                <p class="mb-0"><strong>Ops HQ Supervisor:</strong> Security Direct Link</p>
+            </div>
+        </div>
+    </div>
+
+        <!-- OHC Form Scripts -->
+        <script>
+          function addItemRow() {
+            const id = Date.now();
+            const html = `
+              <div class="row g-2 align-items-center mb-2 item-row" id="item_${id}">
+                <div class="col-1 text-muted">#</div>
+                <div class="col-3">
+                  <input type="text" class="form-control" placeholder="EO Type" data-field="eoType">
+                </div>
+                <div class="col-4">
+                  <input type="text" class="form-control" placeholder="Item Description" data-field="description">
+                </div>
+                <div class="col-2">
+                  <input type="number" class="form-control" placeholder="Quantity" min="1" data-field="quantity">
+                </div>
+                <div class="col-1">
+                  <input type="text" class="form-control" placeholder="Remarks" data-field="remarks">
+                </div>
+                <div class="col-1">
+                  <button type="button" class="btn btn-sm btn-outline-danger" onclick="document.getElementById('item_${id}').remove()">X</button>
+                </div>
+              </div>
+            `;
+            document.getElementById('itemsList').insertAdjacentHTML('beforeend', html);
+          }
+
+          function clearItemRows() {
+            document.getElementById('itemsList').innerHTML = '';
+          }
+
+          function ohcReset() {
+            document.getElementById('ohcForm').reset();
+            clearItemRows();
+            addItemRow();
+          }
+
+          document.getElementById('ohcForm').onsubmit = function(e) {
+            e.preventDefault();
+            const form = e.target;
+            const data = Object.fromEntries(new FormData(form).entries());
+            const itemRows = document.querySelectorAll('.item-row');
+            const items = [];
+            itemRows.forEach(row => {
+              const eoType = row.querySelector('[data-field="eoType"]').value;
+              const description = row.querySelector('[data-field="description"]').value;
+              const quantity = row.querySelector('[data-field="quantity"]').value || 0;
+              const remarks = row.querySelector('[data-field="remarks"]').value || '';
+              if (eoType && description) {
+                items.push({eoType, description, quantity, remarks});
+              }
+            });
+            data.items = JSON.stringify(items);
+
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+              google.script.run.withSuccessHandler(function(res){
+                if (res && res.success) {
+                  alert('OHC saved. Ref: ' + res.ref);
+                  ohcReset();
+                } else {
+                  alert('Save failed: ' + (res && res.error));
+                }
+              }).withFailureHandler(function(err){
+                alert('Network/Error: ' + err.toString());
+              }).processOHC(data);
+            } else {
+              alert('Not running in GAS environment. Simulated submit.');
+            }
+          };
+
+          // initialize with one row
+          addItemRow();
+        </script>
+</div>
+
+<script>
+  // Router removed; shared scripts included below
+</script>
+
+<?!= include('SharedScripts'); ?>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MASAM Web Portal - TJET Receipts</title>
+    <?!= include('SharedStyles'); ?>
+</head>
+<body>
+
+<?!= include('SharedHeader'); ?>
+
+<div class="container">
+    <div class="page-header shadow-sm">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <span class="badge bg-info px-3 py-2 mb-2 text-uppercase fw-bold">Logistics & Ledger</span>
+                <h1 class="fw-bold mb-1">TJET Receipts & Expenditure / الإيرادات والمصروفات</h1>
+                <p class="text-white-50 mb-0">Record, balance, and account for ordnance resources, equipment, and expenditures.</p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <button class="btn btn-info text-dark font-semibold shadow-sm">+ Log Receipt/Expense</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Layout Shell Content -->
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card p-4 text-center">
+                <h6 class="text-muted text-uppercase font-bold small mb-2">Inventory Logged</h6>
+                <h2 class="fw-bold text-slate-800">1,480 Units</h2>
+                <div class="text-success small mt-1">Verified on site</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-4 text-center">
+                <h6 class="text-muted text-uppercase font-bold small mb-2">Expended This Month</h6>
+                <h2 class="fw-bold text-slate-800">182 Units</h2>
+                <div class="text-danger small mt-1">Recorded in Ops</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-4 text-center">
+                <h6 class="text-muted text-uppercase font-bold small mb-2">Remaining Store Balance</h6>
+                <h2 class="fw-bold text-slate-800">1,298 Units</h2>
+                <div class="text-primary small mt-1">Ready for deployment</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inline TJET Receipt & Expenditure Form -->
+    <div class="mt-4">
+      <div class="card p-3 mb-4 bg-white rounded shadow-sm">
+        <form id="tjetReceiptForm">
+          <div class="row g-3 mb-2">
+            <div class="col-md-3"><label class="form-label">DATE / تاريخ</label><input name="date" type="date" class="form-control" required></div>
+            <div class="col-md-3"><label class="form-label">RECEIVED / العناصر المستلم‬</label><input name="received" type="text" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">QTY / الكمية (received)</label><input name="receivedQty" type="number" class="form-control" min="0"></div>
+            <div class="col-md-3"><label class="form-label">RECIPIENT NAME / اسم المستلم</label><input name="recipientName" type="text" class="form-control"></div>
+          </div>
+
+          <div class="row g-3 mb-2">
+            <div class="col-md-3"><label class="form-label">EXPENDED / مستخدم</label><input name="expended" type="text" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">QTY / الكمية (expended)</label><input name="expendedQty" type="number" class="form-control" min="0"></div>
+            <div class="col-md-3"><label class="form-label">RETURNED / تم الإرجاع</label><input name="returned" type="text" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">QTY / الكمية (returned)</label><input name="returnedQty" type="number" class="form-control" min="0"></div>
+          </div>
+
+          <div class="row g-3 mb-2">
+            <div class="col-md-6"><label class="form-label">TYPE OF TARGETS DESTROYED / أنواع األهداف التي تم تدميرها</label><input name="typesDestroyed" type="text" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">NUMBER OF TARGETS DESTROYED</label><input name="numberDestroyed" type="number" class="form-control" min="0"></div>
+            <div class="col-md-3"><label class="form-label">MISFIRED IGNITERS / فشل في عمل المشعِالت</label><input name="misfiredIgniters" type="number" class="form-control" min="0"></div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Submit</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('tjetReceiptForm').reset()">Reset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+    document.getElementById('tjetReceiptForm').onsubmit = function(e){
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target).entries());
+      const payload = {
+        docRef: data.docRef || '',
+        timestamp: new Date().toISOString(),
+        date: data.date || '',
+        received: data.received || '',
+        receivedQty: data.receivedQty || '',
+        recipientName: data.recipientName || '',
+        expended: data.expended || '',
+        expendedQty: data.expendedQty || '',
+        returned: data.returned || '',
+        returnedQty: data.returnedQty || '',
+        typesDestroyed: data.typesDestroyed || '',
+        numberDestroyed: data.numberDestroyed || '',
+        misfiredIgniters: data.misfiredIgniters || ''
+      };
+      if(typeof google !== 'undefined' && google.script && google.script.run){
+        google.script.run.withSuccessHandler(res=>{
+          if(res && res.success){ alert('Saved. Ref: ' + (res.ref||'n/a')); document.getElementById('tjetReceiptForm').reset(); }
+          else alert('Save failed: '+(res&&res.error));
+        }).withFailureHandler(err=>alert('Error: '+err.message||err)).processTJETReceiptAndExpenditure(payload);
+      } else {
+        alert('Not running in GAS environment.');
+      }
+    };
+    </script>
+  <script>
+  // Router removed; shared scripts included below
+</script>
+
+<?!= include('SharedScripts'); ?>
+</body>
+</html>

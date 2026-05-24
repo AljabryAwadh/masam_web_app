@@ -1,0 +1,38 @@
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3 mb-4 shadow-sm">
+  <div class="container-fluid">
+    <span class="navbar-brand fw-bold text-primary">MASAM Web Portal</span>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <div class="navbar-nav gap-2 ms-auto">
+        <a class="nav-link" id="linkDashboard" href="#" target="_top">Dashboard</a>
+        <a class="nav-link" id="linkDws" href="#" target="_top">Daily Worksheet</a>
+        <a class="nav-link" id="linkOhc" href="#" target="_top">OHC</a>
+        <a class="nav-link" id="linkTjetReg" href="#" target="_top">TJET Registry</a>
+        <a class="nav-link" id="linkTjetReceipts" href="#" target="_top">TJET Receipts & Exp</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- Loader Overlay -->
+<div id="loader">
+  <div class="spinner-border text-light" style="width: 3.5rem; height: 3.5rem;" role="status"></div>
+  <p class="mt-4 fw-bold text-white fs-5">Processing Submission, Uploading Images & Generating PDF...</p>
+  <p class="text-white-50 small">Please do not close this window.</p>
+</div>
+
+<!-- Custom Dialog Modal -->
+<div id="customModal" class="custom-modal">
+  <div class="modal-card">
+    <div id="modalIcon" class="mb-3"></div>
+    <h4 id="modalTitle" class="fw-bold mb-2"></h4>
+    <p id="modalBody" class="text-secondary mb-4"></p>
+    <div class="d-flex justify-content-center gap-2">
+      <a id="modalActionBtn" href="#" target="_blank" class="btn btn-primary d-none">View Document / عرض الملف</a>
+      <button class="btn btn-secondary px-4" onclick="closeCustomModal()">Close / إغلاق</button>
+    </div>
+  </div>
+</div>

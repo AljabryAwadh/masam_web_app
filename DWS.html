@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EOD Daily Worksheet</title>
+    <!-- Load Tailwind & Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f3f4f6; 
+            color: #1f2937; 
+        }
+        .nav-link { font-weight: 500; transition: color 0.15s ease-in-out; }
+        .section-header { 
+            background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%); 
+            color: white; 
+            padding: 14px 20px; 
+            border-radius: 8px 8px 0 0; 
+            font-weight: 600; 
+            margin-top: 25px; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+        }
+        .form-container { 
+            background: white; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); 
+            padding: 40px; 
+            margin-bottom: 60px; 
+        }
+        .btn-primary { 
+            background: #1d4ed8; 
+            border: none; 
+            padding: 12px; 
+            font-weight: 600; 
+            transition: all 0.2s;
+        }
+        .btn-primary:hover { 
+            background-color: #1e40af; 
+            transform: translateY(-1px);
+        }
+        #loader { 
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(15, 23, 42, 0.85); 
+            z-index: 9999; 
+            justify-content: center; 
+            align-items: center; 
+            flex-direction: column; 
+            backdrop-filter: blur(4px);
+        }
+        .erw-row { 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            border-left: 5px solid #2563eb; 
+        }
+        .erw-row:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+        }
+        .form-label { 
+            font-size: 0.875rem; 
+            margin-bottom: 0.4rem; 
+            color: #4b5563;
+        }
+        /* Custom Dialog Modals */
+        .custom-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+            text-align: center;
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .coord-hint {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+        .img-preview {
+            max-width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px dashed #cbd5e1;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Global Portal Navigation Bar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3 mb-4 shadow-sm">
+  <div class="container-fluid">
+    <span class="navbar-brand fw-bold text-primary">EOD Web Portal</span>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <div class="navbar-nav gap-2 ms-auto">
+        <a class="nav-link" id="linkDashboard" href="#" target="_top">Dashboard</a>
+        <a class="nav-link active" id="linkDws" href="#" target="_top">Daily Worksheet</a>
+        <a class="nav-link" id="linkOhc" href="#" target="_top">OHC</a>
+        <a class="nav-link" id="linkTjetReg" href="#" target="_top">TJET Registry</a>
+        <a class="nav-link" id="linkTjetReceipts" href="#" target="_top">TJET Receipts & Exp</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- Loader Overlay -->
+<div id="loader">
+    <div class="spinner-border text-light" style="width: 3.5rem; height: 3.5rem;" role="status"></div>
+    <p class="mt-4 fw-bold text-white fs-5">Processing Submission, Uploading Images & Generating PDF...</p>
+    <p class="text-white-50 small">Please do not close this window.</p>
+</div>
+
+<!-- Custom Dialog Modal -->
+<div id="customModal" class="custom-modal">
+    <div class="modal-card">
+        <div id="modalIcon" class="mb-3"></div>
+        <h4 id="modalTitle" class="fw-bold mb-2"></h4>
+        <p id="modalBody" class="text-secondary mb-4"></p>
+        <div class="d-flex justify-content-center gap-2">
+            <a id="modalActionBtn" href="#" target="_blank" class="btn btn-primary d-none">View Document / عرض الملف</a>
+            <button class="btn btn-secondary px-4" onclick="closeCustomModal()">Close / إغلاق</button>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="form-container">
+        <!-- Logo Header -->
+        <div class="text-center mb-4">
+            <span class="badge bg-primary px-3 py-2 mb-2 text-uppercase tracking-wider">Operational Worksheet</span>
+            <h1 class="fw-extrabold text-slate-900" style="font-size: 1.85rem; color: #1e293b;">DAILY WORKSHEET / ورشة العمل اليومي</h1>
+            <p class="text-muted text-sm">Explosive Ordnance Disposal (EOD) Operations Command</p>
+        </div>
+        
+        <form id="eodForm">
+            <!-- SECTION 1: TASK DETAILS -->
+            <div class="section-header">1. Task Details / تفاصيل المهمة</div>
+            <div class="p-4 border border-top-0 rounded-bottom mb-4 bg-light bg-opacity-40">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Task Details / تفاصيل المهمة:</label>
+                        <select name="taskDetails" class="form-select" required>
+                            <option value="">Select Task...</option>
+                            <option value="TJET Operations">TJET Operations / عمليات TJET</option>
+                            <option value="Mine Field Clearance">Mine Field Clearance / إزالة حقول الألغام</option>
+                            <option value="Non Technical Survey">Non Technical Survey المسح غير تقني</option>
+                            <option value="Training">Training / تدريب</option>
+                            <option value="Technical Survey">Technical Survey / المسح تقني</option>
+                            <option value="EO Transport">EO Transport / نقل الذخائر المتفجرة</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Start Date / تاريخ البدء:</label>
+                        <input type="date" name="taskStartDate" class="form-control" min="2025-09-01" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Complete Date / الانجاز:</label>
+                        <input type="date" name="taskCompleteDate" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Date / تاريخ اليوم:</label>
+                        <input type="date" name="date" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Team No / رقم الفريق:</label>
+                        <select name="teamNo" class="form-select" required>
+                            <option value="T34">T34</option><option value="T35">T35</option><option value="T36">T36</option>
+                            <option value="T37">T37</option><option value="T38">T38</option><option value="T39">T39</option>
+                            <option value="T40">T40</option><option value="T41">T41</option><option value="T42">T42</option>
+                            <option value="T43">T43</option><option value="T44">T44</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Site Address / عنوان الموقع:</label>
+                        <input type="text" name="siteAddress" class="form-control" required placeholder="E.g., District Sector A">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Supervisor / قائد الفريق:</label>
+                        <input type="text" name="teamLeader" class="form-control" required placeholder="Full Name">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">GPS Control Point N / نقطة السيطرة N:</label>
+                        <input type="text" name="gpsN" class="form-control coord-val" placeholder="16.21.20.61" 
+                            pattern="^(1[2-8])\.([0-5]\d)\.([0-5]\d(\.\d+)?)$" title="Format: DD.MM.SS.SS (e.g. 16.21.20.61)">
+                        <div class="coord-hint">Format: DD.MM.SS.SS (e.g., 16.21.20.61)</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">GPS Control Point E / نقطة السيطرة E:</label>
+                        <input type="text" name="gpsE" class="form-control coord-val" placeholder="042.52.35.58" 
+                            pattern="^(0?4[2-9]|0?5[0-4])\.([0-5]\d)\.([0-5]\d(\.\d+)?)$" title="Format: DDD.MM.SS.SS (e.g. 042.52.35.58)">
+                        <div class="coord-hint">Format: DDD.MM.SS.SS (e.g., 042.52.35.58)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: WORK SUMMARY -->
+            <div class="section-header">2. Work Summary / ملخص العمل اليومي</div>
+            <div class="p-4 border border-top-0 rounded-bottom mb-4 bg-light bg-opacity-40">
+                <div class="table-responsive">
+                    <table class="table table-bordered bg-white align-middle shadow-sm rounded overflow-hidden">
+                        <thead class="table-dark small text-uppercase tracking-wider">
+                            <tr>
+                                <th>Type of clearance / نوع التطهير</th>
+                                <th>Cleared m2 / المساحة المطهرة</th>
+                                <th>Daily QA m2 / ضمان الجودة اليومي</th>
+                                <th>Completion QA / فحص الانجاز</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="fw-semibold">F-3L Black Cap / كاشف غطاء أسود</td>
+                                <td><input type="number" name="f3lBlackCleared" class="form-control" min="0" step="any" placeholder="Area (m²)"></td>
+                                <td><input type="number" name="f3lBlackQA" class="form-control" min="0" step="any" placeholder="QA (m²)"></td>
+                                <td><input type="number" name="f3lBlackComp" class="form-control" min="0" step="any" placeholder="Comp (m²)"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">F-3L Red Cap / كاشف غطاء أحمر</td>
+                                <td><input type="number" name="f3lRedCleared" class="form-control" min="0" step="any" placeholder="Area (m²)"></td>
+                                <td><input type="number" name="f3lRedQA" class="form-control" min="0" step="any" placeholder="QA (m²)"></td>
+                                <td><input type="number" name="f3lRedComp" class="form-control" min="0" step="any" placeholder="Comp (m²)"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Large Loop / اللاج لوب</td>
+                                <td><input type="number" name="largeLoopCleared" class="form-control" min="0" step="any" placeholder="Area (m²)"></td>
+                                <td><input type="number" name="largeLoopQA" class="form-control" min="0" step="any" placeholder="QA (m²)"></td>
+                                <td><input type="number" name="largeLoopComp" class="form-control" min="0" step="any" placeholder="Comp (m²)"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label fw-semibold">Work Details & Notes / تفاصيل إضافية والملاحظات:</label>
+                    <textarea name="workDetails" class="form-control" rows="3" placeholder="Enter specific activities, details of search patterns, or site challenges..."></textarea>
+                </div>
+            </div>
+
+            <!-- SECTION 3: ERW FINDS -->
+            <div class="section-header d-flex justify-content-between align-items-center">
+                <span>3. ERW Finds / الذخائر المكتشفة يومياً</span>
+                <button type="button" class="btn btn-sm btn-light text-primary fw-bold shadow-sm" onclick="addErwRow()">+ Add Find / إضافة ذخيرة</button>
+            </div>
+            
+            <div class="row g-2 mb-2 d-none d-md-flex px-3 text-secondary fw-bold mt-2 small text-uppercase">
+                <div class="col-md-2">EO Lat (N)</div>
+                <div class="col-md-2">EO Long (E)</div>
+                <div class="col-md-2">Type / نوع</div>
+                <div class="col-md-3">Description / وصف</div>
+                <div class="col-md-1 text-center">Rem.</div>
+                <div class="col-md-1 text-center">Left</div>
+                <div class="col-md-1 text-center">Action</div>
+            </div>
+
+            <div id="erwList" class="mb-4"></div>
+
+            <!-- SUBMIT BUTTONS -->
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm">Submit Worksheet / إرسال التقرير اليومي</button>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-secondary btn-lg w-100" onclick="confirmReset()">Clear Form / مسح الاستمارة</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    /**
+     * Toggles Removed vs Left on Site checkboxes (Mutually Exclusive)
+     */
+    function toggleStatus(id, type) {
+        const row = document.getElementById(`row_${id}`);
+        const rem = row.querySelector('.removed');
+        const left = row.querySelector('.leftOnSite');
+        
+        if (type === 'rem' && rem.checked) {
+            left.checked = false;
+        } else if (type === 'left' && left.checked) {
+            rem.checked = false;
+        }
+    }
+
+    /**
+     * Show preview of selected image locally instantly
+     */
+    function handleImagePreview(event, id) {
+        const file = event.target.files[0];
+        const previewContainer = document.getElementById(`preview_container_${id}`);
+        const imgElement = document.getElementById(`img_prev_${id}`);
+        
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imgElement.src = e.target.result;
+                previewContainer.classList.remove('d-none');
+            }
+            reader.readAsDataURL(file);
+        } else {
+            previewContainer.classList.add('d-none');
+        }
+    }
+
+    /**
+     * Dynamically adds a new ERW Find row to the UI
+     */
+    function addErwRow() {
+        const id = Date.now();
+        const html = `
+            <div class="erw-row shadow-sm border rounded p-3 mb-3 bg-white" id="row_${id}">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-2">
+                        <label class="d-md-none small fw-bold">EO Coordinates N / الإحداثيات الشمالية</label>
+                        <input type="text" class="form-control eoN coord-val" placeholder="16.21.20.61" required
+                            pattern="^(1[2-8])\\.([0-5]\\d)\\.([0-5]\\d(\\.\\d+)?)$">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="d-md-none small fw-bold">EO Coordinates E / الإحداثيات الشرقية</label>
+                        <input type="text" class="form-control eoE coord-val" placeholder="042.52.35.58" required
+                            pattern="^(0?4[2-9]|0?5[0-4])\\.([0-5]\\d)\\.([0-5]\\d(\\.\\d+)?)$">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="d-md-none small fw-bold">EO Type / نوع</label>
+                        <select class="form-select eoType">
+                            <option value="AP">AP / لغم أفراد</option>
+                            <option value="AT">AT / لغم عربات</option>
+                            <option value="IED">IED / عبوة ناسفة</option>
+                            <option value="UXO">UXO / قذيفة غير منفجرة</option>
+                            <option value="FUZES">FUZES / صواعق</option>
+                            <option value="PROJECTILES">PROJ / مقذوف</option>
+                            <option value="PRESSURE PLATES">PLATE / لوحة ضغط</option>
+                            <option value="ROUNDS">ROUNDS / طلقات</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="d-md-none small fw-bold">EO Description / وصف</label>
+                        <input type="text" class="form-control eoDesc" placeholder="Description / Type model" required>
+                    </div>
+                    <div class="col-md-1 text-center">
+                        <label class="d-md-none small d-block">Removed / نقل</label>
+                        <input type="checkbox" class="form-check-input removed" onchange="toggleStatus(${id}, 'rem')" style="width:22px;height:22px;">
+                    </div>
+                    <div class="col-md-1 text-center">
+                        <label class="d-md-none small d-block">Left / ترك</label>
+                        <input type="checkbox" class="form-check-input leftOnSite" onchange="toggleStatus(${id}, 'left')" style="width:22px;height:22px;">
+                    </div>
+                    <div class="col-md-1 text-center">
+                        <button type="button" class="btn btn-outline-danger btn-sm w-100 py-2" onclick="deleteRow(${id})">Delete</button>
+                    </div>
+                    
+                    <div class="col-md-8 mt-2 pt-2 border-top">
+                        <label class="small fw-bold text-secondary">Upload Photo / صورة الذخيرة (Auto-resizes):</label>
+                        <input type="file" class="form-control form-control-sm eoFile" accept="image/*" onchange="handleImagePreview(event, ${id})">
+                    </div>
+                    <div class="col-md-4 mt-2 pt-2 border-top d-none text-center" id="preview_container_${id}">
+                        <img id="img_prev_${id}" src="#" class="img-preview" alt="Image Preview">
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('erwList').insertAdjacentHTML('beforeend', html);
+    }
+
+    /**
+     * Delete an ERW entry securely
+     */
+    function deleteRow(id) {
+        const element = document.getElementById(`row_${id}`);
+        if (element) {
+            element.remove();
+        }
+        if (document.querySelectorAll('.erw-row').length === 0) {
+            addErwRow();
+        }
+    }
+
+    /**
+     * Resizes selected image to 240x320 for compression
+     */
+    function resizeImage(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (e) => {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 300;
+                    canvas.height = 400;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, 300, 400);
+                    resolve(canvas.toDataURL('image/jpeg', 0.82));
+                };
+            };
+        });
+    }
+
+    /**
+     * Modal Control Functions
+     */
+    function showCustomModal(title, body, type, actionUrl = "") {
+        const iconDiv = document.getElementById('modalIcon');
+        const actionBtn = document.getElementById('modalActionBtn');
+        document.getElementById('modalTitle').innerText = title;
+        document.getElementById('modalBody').innerText = body;
+
+        if (type === 'success') {
+            iconDiv.innerHTML = `
+                <svg class="mx-auto" style="width:64px; height:64px;" fill="none" stroke="#22c55e" stroke-width="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"></path>
+                </svg>
+            `;
+            if (actionUrl) {
+                actionBtn.href = actionUrl;
+                actionBtn.classList.remove('d-none');
+            } else {
+                actionBtn.classList.add('d-none');
+            }
+        } else {
+            iconDiv.innerHTML = `
+                <svg class="mx-auto" style="width:64px; height:64px;" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            `;
+            actionBtn.classList.add('d-none');
+        }
+        document.getElementById('customModal').style.display = 'flex';
+    }
+
+    function closeCustomModal() {
+        document.getElementById('customModal').style.display = 'none';
+    }
+
+    function confirmReset() {
+        if (confirm("Are you sure you want to clear the entire form? All input will be lost.")) {
+            resetFullForm();
+        }
+    }
+
+    function resetFullForm() {
+        document.getElementById('eodForm').reset();
+        document.getElementById('erwList').innerHTML = "";
+        addErwRow(); 
+        
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementsByName('date')[0].value = today;
+        document.getElementsByName('taskStartDate')[0].value = today;
+    }
+
+    document.getElementById('eodForm').onsubmit = async function(e) {
+        e.preventDefault();
+        
+        const rowElements = document.querySelectorAll('.erw-row');
+        for (let row of rowElements) {
+            const rem = row.querySelector('.removed').checked;
+            const left = row.querySelector('.leftOnSite').checked;
+            if (!rem && !left) {
+                showCustomModal(
+                    "Validation Error / خطأ في التحقق", 
+                    "Please select either 'Removed' or 'Left on Site' for all registered ERW finds.", 
+                    "error"
+                );
+                return;
+            }
+        }
+
+        document.getElementById('loader').style.display = 'flex';
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData.entries());
+
+        const erwRows = [];
+        try {
+            for (let row of rowElements) {
+                const fileInput = row.querySelector('.eoFile').files[0];
+                let base64 = "";
+                if (fileInput) {
+                    base64 = await resizeImage(fileInput);
+                }
+                erwRows.push({
+                    eoN: row.querySelector('.eoN').value,
+                    eoE: row.querySelector('.eoE').value,
+                    eoType: row.querySelector('.eoType').value,
+                    eoDesc: row.querySelector('.eoDesc').value,
+                    removed: row.querySelector('.removed').checked,
+                    leftOnSite: row.querySelector('.leftOnSite').checked,
+                    imageBase64: base64
+                });
+            }
+            data.erwRows = JSON.stringify(erwRows);
+
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler((res) => {
+                        document.getElementById('loader').style.display = 'none';
+                        if (res.success) {
+                            showCustomModal(
+                                "Success! / تم الإرسال بنجاح", 
+                                "Worksheet submitted successfully. Unique Ref: " + res.ref, 
+                                "success",
+                                res.pdfUrl
+                            );
+                            resetFullForm();
+                        } else {
+                            showCustomModal("Submission Error", res.error, "error");
+                        }
+                    })
+                    .withFailureHandler((err) => {
+                        document.getElementById('loader').style.display = 'none';
+                        showCustomModal("Network/System Error", err.toString(), "error");
+                    })
+                    .processForm(data);
+            } else {
+                // Testing simulation
+                setTimeout(() => {
+                    document.getElementById('loader').style.display = 'none';
+                    showCustomModal("Demo Success Mode", "Submitted successfully (Simulation Mode).", "success");
+                    resetFullForm();
+                }, 1500);
+            }
+
+        } catch (error) {
+            document.getElementById('loader').style.display = 'none';
+            showCustomModal("Processing Error", error.toString(), "error");
+        }
+    };
+
+    window.onload = function() {
+        addErwRow();
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementsByName('date')[0].value = today;
+        document.getElementsByName('taskStartDate')[0].value = today;
+    }
+</script>
+
+<script>
+  // Safe Navigation Router Check
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run.withSuccessHandler(function(scriptUrl) {
+      if (scriptUrl) {
+        document.getElementById("linkDashboard").href = scriptUrl + "?page=Index";
+        document.getElementById("linkDws").href = scriptUrl + "?page=DWS";
+        document.getElementById("linkOhc").href = scriptUrl + "?page=OHC";
+        document.getElementById("linkTjetReg").href = scriptUrl + "?page=TJET_Registry";
+        document.getElementById("linkTjetReceipts").href = scriptUrl + "?page=TJET_Receipt_and_Expenditure";
+      }
+    }).getScriptUrl();
+  } else {
+    console.warn("GAS Environment not detected. Standard fallback routes set.");
+    const base = window.location.origin + window.location.pathname;
+    document.getElementById("linkDashboard").href = base + "?page=Index";
+    document.getElementById("linkDws").href = base + "?page=DWS";
+    document.getElementById("linkOhc").href = base + "?page=OHC";
+    document.getElementById("linkTjetReg").href = base + "?page=TJET_Registry";
+    document.getElementById("linkTjetReceipts").href = base + "?page=TJET_Receipt_and_Expenditure";
+  }
+</script>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

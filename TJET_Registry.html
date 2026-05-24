@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MASAM Web Portal - TJET Registry</title>
+  <?!= include('SharedStyles'); ?>
+</head>
+<body>
+
+<?!= include('SharedHeader'); ?>
+
+<div class="container">
+    <div class="page-header shadow-sm">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <span class="badge bg-primary px-3 py-2 mb-2 text-uppercase fw-bold">Operations Hub</span>
+                <h1 class="fw-bold mb-1">TJET Registry / سجل العمليات</h1>
+                <p class="text-white-50 mb-0">Comprehensive record keeping and reference registry for all TJET operations.</p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <button class="btn btn-primary font-semibold shadow-sm">+ Register New Mission</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Layout Shell Content (Operational Log removed per request) -->
+
+    <!-- Inline TJET Registry Form -->
+    <div class="mt-4">
+      <div class="section mb-4 bg-white p-4 rounded shadow-sm">
+        <h4 class="mb-3">TJET Registry Task</h4>
+        <form id="tjetForm">
+          <div class="row g-3 mb-2">
+            <div class="col-md-3">
+              <label class="form-label">DATE / تاريخ</label>
+              <input type="date" name="date" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">TEAM # / رقم الفريق</label>
+              <input type="text" name="teamNo" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">SITE LOCATION / عنوان الموقع</label>
+              <input type="text" name="siteLocation" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">TEAM LEADER / قائد الفريق</label>
+              <input type="text" name="teamLeader" class="form-control">
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-3">
+              <label class="form-label">TASK NUMBER / رقم المهمة</label>
+              <input type="text" name="taskNumber" class="form-control">
+            </div>
+          </div>
+          <hr>
+          <h5>TJET Operations Details / تفاصيل عملية TJET</h5>
+          <div id="tjetItems" class="mb-3"></div>
+          <div class="mb-3">
+            <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="addTjetRow()">+ Add TJET Item</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearTjetRows()">Clear Items</button>
+          </div>
+          <div class="d-flex justify-content-between">
+            <button type="submit" class="btn btn-primary">Submit Registry</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="tjetReset()">Reset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+function addTjetRow(){
+  const id=Date.now();
+  const html=`<div class="row g-2 align-items-center mb-2 tjet-row" id="tjet_${id}">
+    <div class="col-2"><input type="text" class="form-control" placeholder="SITE FOR TEAM#" data-field="siteForTeam"></div>
+    <div class="col-2"><input type="text" class="form-control" placeholder="EO GPS_N_DMS" data-field="gpsN" value="16.00.00.00"></div>
+    <div class="col-2"><input type="text" class="form-control" placeholder="EO GPS_E_DMS" data-field="gpsE" value="042.00.00.00"></div>
+    <div class="col-2"><input type="text" class="form-control" placeholder="EO Type" data-field="eoType"></div>
+    <div class="col-3"><input type="text" class="form-control" placeholder="EO Description" data-field="eoDesc"></div>
+    <div class="col-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="document.getElementById('tjet_${id}').remove()">X</button></div>
+    <div class="col-2 mt-2"><input type="text" class="form-control" placeholder="TJET TYPE" data-field="tjetType"></div>
+    <div class="col-2 mt-2"><input type="number" class="form-control" placeholder="TJET QTY" data-field="tjetQty" min="0"></div>
+    <div class="col-4 mt-2"><input type="text" class="form-control" placeholder="Remarks" data-field="remarks"></div>
+  </div>`;
+  document.getElementById('tjetItems').insertAdjacentHTML('beforeend',html);
+}
+function clearTjetRows(){document.getElementById('tjetItems').innerHTML='';}
+function tjetReset(){document.getElementById('tjetForm').reset(); clearTjetRows(); addTjetRow();}
+
+document.addEventListener('DOMContentLoaded', function(){
+  document.getElementById('tjetForm').onsubmit=function(e){
+    e.preventDefault();
+    const data=Object.fromEntries(new FormData(e.target).entries());
+    const rows=document.querySelectorAll('.tjet-row');
+    const items=[];
+    rows.forEach(r=>{
+      const obj={};
+      ['siteForTeam','gpsN','gpsE','eoType','eoDesc','tjetType','tjetQty','remarks'].forEach(field=>{
+        const el=r.querySelector('[data-field="'+field+'"]'); obj[field]=el?el.value:'';
+      });
+      if(obj.eoType||obj.eoDesc||obj.tjetQty) items.push(obj);
+    });
+    data.items=JSON.stringify(items);
+    if(typeof google!=='undefined'&&google.script&&google.script.run){
+      google.script.run.withSuccessHandler(res=>{
+        if(res&&res.success){alert('Saved. Ref: '+res.ref); tjetReset();} else {alert('Save failed: '+(res&&res.error));}
+      }).withFailureHandler(err=>alert('Error: '+err.toString())).processTJET(data);
+    } else {alert('Not running in GAS.');}
+  };
+  addTjetRow();
+});
+    // Router removed; shared scripts included below
+</script>
+
+<?!= include('SharedScripts'); ?>
+</body>
+</html>

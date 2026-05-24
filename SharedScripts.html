@@ -1,0 +1,93 @@
+<script>
+  function showLoader(){ 
+    const L=document.getElementById('loader'); 
+    if(L) L.style.display='flex'; 
+  }
+  
+  function hideLoader(){ 
+    const L=document.getElementById('loader'); 
+    if(L) L.style.display='none'; 
+  }
+  
+  function showCustomModal(title, body, type, actionUrl){
+    const iconDiv = document.getElementById('modalIcon'), actionBtn = document.getElementById('modalActionBtn');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+    const customModal = document.getElementById('customModal');
+    if (!iconDiv || !actionBtn || !modalTitle || !modalBody || !customModal) return;
+    modalTitle.innerText = title;
+    modalBody.innerText = body;
+    if(type === 'success'){
+      iconDiv.innerHTML = '<svg class="mx-auto" style="width:64px;height:64px;" fill="none" stroke="#22c55e" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"></path></svg>';
+      if(actionUrl){ 
+        actionBtn.href = actionUrl; 
+        actionBtn.classList.remove('d-none'); 
+      } else { 
+        actionBtn.classList.add('d-none'); 
+      }
+    } else {
+      iconDiv.innerHTML = '<svg class="mx-auto" style="width:64px;height:64px;" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+      actionBtn.classList.add('d-none');
+    }
+    customModal.style.display = 'flex';
+  }
+  
+  function closeCustomModal(){ 
+    const m=document.getElementById('customModal'); 
+    if(m) m.style.display='none'; 
+  }
+
+  // Auto-highlight active navigation link and resolve script URLs safely
+  (function() {
+    // 1. Highlight current active nav tab based on URL parameters
+    const params = new URLSearchParams(window.location.search);
+    const currentPage = params.get('page') || 'Index';
+    const pageKey = currentPage.toLowerCase();
+
+    // Remove any manually defined active states first
+    document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+      link.classList.remove('active');
+    });
+
+    if (pageKey === 'index' || pageKey === 'dashboard') {
+      document.getElementById('linkDashboard')?.classList.add('active');
+    } else if (pageKey === 'dws') {
+      document.getElementById('linkDws')?.classList.add('active');
+    } else if (pageKey === 'ohc') {
+      document.getElementById('linkOhc')?.classList.add('active');
+    } else if (pageKey === 'tjet_registry') {
+      document.getElementById('linkTjetReg')?.classList.add('active');
+    } else if (pageKey === 'tjet_receipt_and_expenditure') {
+      document.getElementById('linkTjetReceipts')?.classList.add('active');
+    }
+
+    // 2. Initialize nav links to deployed webapp URL dynamically
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run.withSuccessHandler(function(scriptUrl){
+        if(!scriptUrl) return;
+        setNavLinks(scriptUrl);
+      }).getScriptUrl();
+    } else {
+      const base = window.location.origin + window.location.pathname;
+      setNavLinks(base);
+    }
+
+    function setNavLinks(baseUrl) {
+      const links = {
+        linkDashboard: 'Index',
+        linkDws: 'DWS',
+        linkOhc: 'OHC',
+        linkTjetReg: 'TJET_Registry',
+        linkTjetReceipts: 'TJET_Receipt_and_Expenditure'
+      };
+
+      Object.keys(links).forEach(function(id) {
+        const link = document.getElementById(id);
+        if (link) link.href = baseUrl + '?page=' + links[id];
+      });
+    }
+  })();
+</script>
+
+<!-- Bootstrap JS Bundle (shared) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
