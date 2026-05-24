@@ -1,5 +1,15 @@
 const IMAGE_FOLDER_ID = '1x_QaizeAmXCRn6RewqiqfNUpGw-zyYM4'; // ERW Images
-const PDF_FOLDER_ID = '1daR-L_mVPvxSlvyUHcYkGVOgpP54UPvg'; // TJET Receipt and Expenditure PDF Forms
+const DWS_PDF_FOLDER_ID = '1muEnkn0yBbR-rbPPjQfXGiaQBV6peMBZ'; // DWS PDF Forms
+const OHC_PDF_FOLDER_ID = '1UfNMCHK6CyxHd0ldRtVSS3agwcdPgEAC'; // OHC PDF Forms
+const TJET_REGISTRY_PDF_FOLDER_ID = '1SKzQ89MY2CL7HgkuENkN7-jk2G_Unxr0'; // TJET Registry PDF Forms
+const TJET_RECEIPT_EXPENDITURE_PDF_FOLDER_ID = '1daR-L_mVPvxSlvyUHcYkGVOgpP54UPvg'; // TJET Receipt and Expenditure PDF Forms
+
+const DOC_REF_CONFIG = {
+  DWS: { prefix: 'DWS', width: 5 },
+  OHC: { prefix: 'OHC', width: 5 },
+  TJET_REG: { prefix: 'TJET-REG', width: 5 },
+  TJET_REC_EXP: { prefix: 'TJET-REC-EXP', width: 3 }
+};
 
 /**
  * Serves the HTML file to the browser dynamically based on URL parameters.
@@ -67,18 +77,105 @@ function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
+function getSafeTeamNo(teamNo) {
+  return String(teamNo || 'TEAM').trim().replace(/[^A-Za-z0-9-]/g, '_') || 'TEAM';
+}
+
+function getNextDocRef(formKey, teamNo) {
+  const config = DOC_REF_CONFIG[formKey];
+  if (!config) throw new Error('Unknown document reference form key: ' + formKey);
+
+  const team = getSafeTeamNo(teamNo);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    const propertyKey = 'DOC_COUNTER_' + formKey + '_' + team;
+    const nextNumber = Number(properties.getProperty(propertyKey) || 0) + 1;
+    properties.setProperty(propertyKey, String(nextNumber));
+    const padded = String(nextNumber).padStart(config.width, '0');
+    return config.prefix + '_' + team + '_' + padded;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function createPdfFile(html, docRef, folderId) {
+  const folder = DriveApp.getFolderById(folderId);
+  const blob = Utilities.newBlob(html, 'text/html', docRef + '.html');
+  const pdf = folder.createFile(blob.getAs('application/pdf')).setName(docRef + '.pdf');
+  return pdf.getUrl();
+}
+
+function escapeHtml(value) {
+  return String(value === undefined || value === null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /**
  * Processes the form data, saves to 3 sheets, and generates a PDF.
  */
 function processForm(formData) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const timestamp = new Date();
-  const docRef = "EOD-" + timestamp.getTime(); // Unique Reference based on timestamp
+  const docRef = getNextDocRef('DWS', formData.teamNo);
   
   try {
-    // 1. Log Task Response
     const sheetTask = ss.getSheetByName('Form_Task_Response');
     if (!sheetTask) throw new Error("Sheet 'Form_Task_Response' not found.");
+    const sheetSummary = ss.getSheetByName('Form_Work_Summary_Response');
+    if (!sheetSummary) throw new Error("Sheet 'Form_Work_Summary_Response' not found.");
+    const sheetERW = ss.getSheetByName('Form_ERW_Finds_Response');
+    if (!sheetERW) throw new Error("Sheet 'Form_ERW_Finds_Response' not found.");
+    
+    const erwData = JSON.parse(formData.erwRows || '[]');
+    const processedErwRows = [];
+    const erwSheetRows = [];
+
+    erwData.forEach((row, idx) => {
+      let imageUrl = "";
+      if (row.imageBase64) {
+        const latClean = (row.eoN || '0').replace(/[\s\.]+/g, '_');
+        const lonClean = (row.eoE || '0').replace(/[\s\.]+/g, '_');
+        const itemNo = String(idx + 1).padStart(2, '0');
+        const fileName = `${docRef}_${formData.teamNo}_${formData.date}_ERW${itemNo}_${row.eoType || 'EO'}_${latClean}_${lonClean}`;
+        imageUrl = saveToDrive(row.imageBase64, fileName);
+      }
+      
+      const imageFormula = imageUrl ? `=IMAGE("${imageUrl}")` : "No Image";
+      
+      erwSheetRows.push([
+        docRef, 
+        formData.date, 
+        formData.teamNo, 
+        formData.siteAddress, 
+        formData.teamLeader, 
+        formData.gpsN, 
+        formData.gpsE,
+        row.eoN, 
+        row.eoE, 
+        row.eoType, 
+        row.eoDesc, 
+        row.removed ? "Yes" : "No", 
+        row.leftOnSite ? "Yes" : "No", 
+        imageFormula,
+        imageUrl,
+        ''
+      ]);
+
+      processedErwRows.push({
+        ...row,
+        savedImageUrl: imageUrl
+      });
+    });
+
+    const pdfUrl = createPDF(formData, docRef, processedErwRows);
+
     sheetTask.appendRow([
       timestamp, 
       docRef, 
@@ -90,12 +187,10 @@ function processForm(formData) {
       formData.siteAddress, 
       formData.teamLeader, 
       formData.gpsN, 
-      formData.gpsE
+      formData.gpsE,
+      pdfUrl
     ]);
 
-    // 2. Log Work Summary
-    const sheetSummary = ss.getSheetByName('Form_Work_Summary_Response');
-    if (!sheetSummary) throw new Error("Sheet 'Form_Work_Summary_Response' not found.");
     sheetSummary.appendRow([
       docRef, 
       formData.date, 
@@ -113,61 +208,19 @@ function processForm(formData) {
       formData.largeLoopCleared || 0, 
       formData.largeLoopQA || 0, 
       formData.largeLoopComp || 0,
-      formData.workDetails || ''
+      formData.workDetails || '',
+      pdfUrl
     ]);
 
-    // 3. Log ERW Finds
-    const sheetERW = ss.getSheetByName('Form_ERW_Finds_Response');
-    if (!sheetERW) throw new Error("Sheet 'Form_ERW_Finds_Response' not found.");
-    
-    const erwData = JSON.parse(formData.erwRows || '[]');
-    const processedErwRows = [];
-
-    erwData.forEach((row) => {
-      let imageUrl = "";
-      if (row.imageBase64) {
-        // Filename cleaning: Replace dots and spaces with underscores
-        const latClean = (row.eoN || '0').replace(/[\s\.]+/g, '_');
-        const lonClean = (row.eoE || '0').replace(/[\s\.]+/g, '_');
-        const fileName = `${formData.teamNo}_${formData.date}_${latClean}_${lonClean}`;
-        imageUrl = saveToDrive(row.imageBase64, fileName);
-      }
-      
+    erwSheetRows.forEach(function(sheetRow) {
+      sheetRow[sheetRow.length - 1] = pdfUrl;
       const lastRow = sheetERW.getLastRow() + 1;
-      const imageFormula = imageUrl ? `=IMAGE("${imageUrl}")` : "No Image";
-      
-      sheetERW.appendRow([
-        docRef, 
-        formData.date, 
-        formData.teamNo, 
-        formData.siteAddress, 
-        formData.teamLeader, 
-        formData.gpsN, 
-        formData.gpsE,
-        row.eoN, 
-        row.eoE, 
-        row.eoType, 
-        row.eoDesc, 
-        row.removed ? "Yes" : "No", 
-        row.leftOnSite ? "Yes" : "No", 
-        imageFormula
-      ]);
-
-      // Set cell size for the image display in Google Sheets (200x200)
-      if (imageUrl) {
+      sheetERW.appendRow(sheetRow);
+      if (sheetRow[13] && sheetRow[13] !== 'No Image') {
         sheetERW.setRowHeight(lastRow, 200);
-        sheetERW.setColumnWidth(14, 200); // Column N
+        sheetERW.setColumnWidth(14, 200);
       }
-
-      // Add local URL to rows list for custom PDF rendering
-      processedErwRows.push({
-        ...row,
-        savedImageUrl: imageUrl
-      });
     });
-
-    // 4. Generate the PDF with the compiled data
-    const pdfUrl = createPDF(formData, docRef, processedErwRows);
 
     return { success: true, ref: docRef, pdfUrl: pdfUrl };
   } catch (e) {
@@ -199,8 +252,6 @@ function saveToDrive(base64, name) {
  * Generates a comprehensive PDF report from the form data, incorporating ERW list and images.
  */
 function createPDF(data, docRef, erwRows) {
-  const folder = DriveApp.getFolderById(PDF_FOLDER_ID);
-  
   // Build ERW rows HTML markup
   let erwRowsHtml = '';
   if (erwRows && erwRows.length > 0) {
@@ -338,9 +389,7 @@ function createPDF(data, docRef, erwRows) {
     </div>
   `;
   
-  const blob = Utilities.newBlob(html, "text/html", docRef + ".html");
-  const pdf = folder.createFile(blob.getAs("application/pdf"));
-  return pdf.getUrl();
+  return createPdfFile(html, docRef, DWS_PDF_FOLDER_ID);
 }
 
 /**
@@ -350,14 +399,15 @@ function createPDF(data, docRef, erwRows) {
 function processOHC(formData) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const timestamp = new Date();
-  const docRef = 'OHC-' + timestamp.getTime();
+  const docRef = getNextDocRef('OHC', formData.teamNo);
   try {
     const sheet = ss.getSheetByName('OHC_Form_Response');
     if (!sheet) throw new Error("Sheet 'OHC_Form_Response' not found.");
 
     const items = JSON.parse(formData.items || '[]');
+    const pdfUrl = createOHCPDF(formData, docRef, items);
     if (items.length === 0) {
-      sheet.appendRow([docRef, timestamp, formData.date || '', formData.teamNo || '', formData.supervisor || '', formData.siteTaskNo || '', '', '', '', formData.recipientName || '', 'No items']);
+      sheet.appendRow([docRef, timestamp, formData.date || '', formData.teamNo || '', formData.supervisor || '', formData.siteTaskNo || '', '', '', '', formData.recipientName || '', 'No items', pdfUrl]);
     } else {
       items.forEach(function(item) {
         sheet.appendRow([
@@ -371,15 +421,71 @@ function processOHC(formData) {
           item.description || '',
           item.quantity || '',
           formData.recipientName || '',
-          item.remarks || ''
+          item.remarks || '',
+          pdfUrl
         ]);
       });
     }
 
-    return { success: true, ref: docRef };
+    return { success: true, ref: docRef, pdfUrl: pdfUrl };
   } catch (err) {
     return { success: false, error: err.toString() };
   }
+}
+
+function createOHCPDF(data, docRef, items) {
+  let rowsHtml = '';
+  if (items && items.length > 0) {
+    items.forEach(function(item, idx) {
+      rowsHtml += `
+        <tr>
+          <td style="padding:8px;border:1px solid #ddd;">${idx + 1}</td>
+          <td style="padding:8px;border:1px solid #ddd;">${escapeHtml(item.eoType || '')}</td>
+          <td style="padding:8px;border:1px solid #ddd;">${escapeHtml(item.description || '')}</td>
+          <td style="padding:8px;border:1px solid #ddd;text-align:center;">${escapeHtml(item.quantity || '')}</td>
+          <td style="padding:8px;border:1px solid #ddd;">${escapeHtml(item.remarks || '')}</td>
+        </tr>`;
+    });
+  } else {
+    rowsHtml = '<tr><td colspan="5" style="padding:12px;border:1px solid #ddd;text-align:center;">No items</td></tr>';
+  }
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;padding:28px;color:#222;">
+      <h2 style="margin:0 0 6px 0;color:#b91c1c;">ORDNANCE HANDOVER CERTIFICATE</h2>
+      <div style="margin-bottom:18px;color:#555;">Reference: <b>${escapeHtml(docRef)}</b></div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
+        <tr>
+          <td style="padding:8px;"><b>Date:</b> ${escapeHtml(data.date || '')}</td>
+          <td style="padding:8px;"><b>Team:</b> ${escapeHtml(data.teamNo || '')}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px;"><b>Supervisor:</b> ${escapeHtml(data.supervisor || '')}</td>
+          <td style="padding:8px;"><b>Site / Task No:</b> ${escapeHtml(data.siteTaskNo || '')}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px;" colspan="2"><b>Recipient:</b> ${escapeHtml(data.recipientName || '')}</td>
+        </tr>
+      </table>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#7f1d1d;color:white;">
+            <th style="padding:8px;border:1px solid #ddd;">#</th>
+            <th style="padding:8px;border:1px solid #ddd;">EO Type</th>
+            <th style="padding:8px;border:1px solid #ddd;">Description</th>
+            <th style="padding:8px;border:1px solid #ddd;">Quantity</th>
+            <th style="padding:8px;border:1px solid #ddd;">Remarks</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div style="margin-top:48px;display:flex;justify-content:space-between;">
+        <div>Submitted By: ____________________</div>
+        <div>Received By: ____________________</div>
+      </div>
+    </div>`;
+
+  return createPdfFile(html, docRef, OHC_PDF_FOLDER_ID);
 }
 
 /**
@@ -389,13 +495,14 @@ function processOHC(formData) {
 function processTJET(formData) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const timestamp = new Date();
-  const docRef = 'TJET-' + timestamp.getTime();
+  const docRef = getNextDocRef('TJET_REG', formData.teamNo);
   try {
     const sheet = ss.getSheetByName('TJET_Registry_Form_Response');
     if (!sheet) throw new Error("Sheet 'TJET_Registry_Form_Response' not found.");
     const items = JSON.parse(formData.items || '[]');
+    const pdfUrl = createTJETRegistryPDF(formData, docRef, items);
     if (items.length === 0) {
-      sheet.appendRow([docRef, timestamp, formData.date || '', formData.teamNo || '', formData.siteLocation || '', formData.teamLeader || '', formData.taskNumber || '', '', '', '', '', '', '', 'No items']);
+      sheet.appendRow([docRef, timestamp, formData.date || '', formData.teamNo || '', formData.siteLocation || '', formData.teamLeader || '', formData.taskNumber || '', '', '', '', '', '', '', 'No items', pdfUrl]);
     } else {
       items.forEach(function(item) {
         sheet.appendRow([
@@ -413,14 +520,72 @@ function processTJET(formData) {
           item.eoDesc || '',
           item.tjetType || '',
           item.tjetQty || '',
-          item.remarks || ''
+          item.remarks || '',
+          pdfUrl
         ]);
       });
     }
-    return { success: true, ref: docRef };
+    return { success: true, ref: docRef, pdfUrl: pdfUrl };
   } catch (err) {
     return { success: false, error: err.toString() };
   }
+}
+
+function createTJETRegistryPDF(data, docRef, items) {
+  let rowsHtml = '';
+  if (items && items.length > 0) {
+    items.forEach(function(item, idx) {
+      rowsHtml += `
+        <tr>
+          <td style="padding:7px;border:1px solid #ddd;">${idx + 1}</td>
+          <td style="padding:7px;border:1px solid #ddd;">${escapeHtml(item.siteForTeam || '')}</td>
+          <td style="padding:7px;border:1px solid #ddd;font-family:monospace;">N: ${escapeHtml(item.gpsN || '')}<br>E: ${escapeHtml(item.gpsE || '')}</td>
+          <td style="padding:7px;border:1px solid #ddd;">${escapeHtml(item.eoType || '')}</td>
+          <td style="padding:7px;border:1px solid #ddd;">${escapeHtml(item.eoDesc || '')}</td>
+          <td style="padding:7px;border:1px solid #ddd;">${escapeHtml(item.tjetType || '')}</td>
+          <td style="padding:7px;border:1px solid #ddd;text-align:center;">${escapeHtml(item.tjetQty || '')}</td>
+          <td style="padding:7px;border:1px solid #ddd;">${escapeHtml(item.remarks || '')}</td>
+        </tr>`;
+    });
+  } else {
+    rowsHtml = '<tr><td colspan="8" style="padding:12px;border:1px solid #ddd;text-align:center;">No items</td></tr>';
+  }
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;padding:24px;color:#222;">
+      <h2 style="margin:0 0 6px 0;color:#1d4ed8;">TJET REGISTRY</h2>
+      <div style="margin-bottom:16px;color:#555;">Reference: <b>${escapeHtml(docRef)}</b></div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <tr>
+          <td style="padding:8px;"><b>Date:</b> ${escapeHtml(data.date || '')}</td>
+          <td style="padding:8px;"><b>Team:</b> ${escapeHtml(data.teamNo || '')}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px;"><b>Site Location:</b> ${escapeHtml(data.siteLocation || '')}</td>
+          <td style="padding:8px;"><b>Team Leader:</b> ${escapeHtml(data.teamLeader || '')}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px;" colspan="2"><b>Task Number:</b> ${escapeHtml(data.taskNumber || '')}</td>
+        </tr>
+      </table>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr style="background:#1d4ed8;color:white;">
+            <th style="padding:7px;border:1px solid #ddd;">#</th>
+            <th style="padding:7px;border:1px solid #ddd;">Site For Team</th>
+            <th style="padding:7px;border:1px solid #ddd;">GPS</th>
+            <th style="padding:7px;border:1px solid #ddd;">EO Type</th>
+            <th style="padding:7px;border:1px solid #ddd;">EO Description</th>
+            <th style="padding:7px;border:1px solid #ddd;">TJET Type</th>
+            <th style="padding:7px;border:1px solid #ddd;">Qty</th>
+            <th style="padding:7px;border:1px solid #ddd;">Remarks</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+
+  return createPdfFile(html, docRef, TJET_REGISTRY_PDF_FOLDER_ID);
 }
 
 /**
@@ -438,8 +603,9 @@ function processTJETReceiptAndExpenditure(e) {
 
   try {
     var timestamp = new Date();
-    var docRef = 'TJET-REX-' + timestamp.getTime();
     var named = (e && e.namedValues) ? e.namedValues : (e || {});
+    var teamNo = named.teamNo || named.TEAM_NO || named['TEAM #'] || named.Team || 'TEAM';
+    var docRef = getNextDocRef('TJET_REC_EXP', teamNo);
 
     // Repaired case-insensitive fallback mapping helper
     function getField() {
@@ -460,10 +626,12 @@ function processTJETReceiptAndExpenditure(e) {
       return '';
     }
 
+    var pdfUrl = createTJETReceiptExpenditurePDF(named, docRef);
     var row = [
       docRef, // Doc_Ref_#
       timestamp, // Timestamp
       getField('DATE', 'Date', 'date'), // DATE
+      getField('TEAM_NO', 'Team No', 'teamNo'), // TEAM_NO
       getField('RECEIVED', 'Received', 'received'), // RECEIVED
       getField('RECEIVED_QTY', 'Received Qty', 'RECEIVED QTY', 'receivedQty'), // RECEIVED_QTY
       getField('RECIPIENT_NAME', 'Recipient Name', 'Recipient', 'recipientName'), // RECIPIENT_NAME
@@ -473,14 +641,68 @@ function processTJETReceiptAndExpenditure(e) {
       getField('RETURNED_QTY', 'Returned Qty', 'RETURNED_QTY', 'returnedQty'), // RETURNED_QTY
       getField('TYPES_DESTROYED', 'Types Destroyed', 'typesDestroyed'), // TYPES_DESTROYED
       getField('NUMBER_DESTROYED', 'Number Destroyed', 'NUMBER_DESTROYED', 'numberDestroyed'), // NUMBER_DESTROYED
-      getField('MISFIRED_IGNITERS', 'Misfired Igniters', 'MISFIRED_IGNITERS', 'misfiredIgniters') // MISFIRED_IGNITERS
+      getField('MISFIRED_IGNITERS', 'Misfired Igniters', 'MISFIRED_IGNITERS', 'misfiredIgniters'), // MISFIRED_IGNITERS
+      pdfUrl
     ];
 
     sheet.appendRow(row);
     Logger.log('processTJETReceiptAndExpenditure appended successfully: %s', JSON.stringify(row));
-    return { success: true, ref: docRef };
+    return { success: true, ref: docRef, pdfUrl: pdfUrl };
   } catch (err) {
     Logger.log('processTJETReceiptAndExpenditure error: %s', err.toString());
     return { success: false, error: err.toString() };
   }
+}
+
+function createTJETReceiptExpenditurePDF(data, docRef) {
+  function field() {
+    for (var i = 0; i < arguments.length; i++) {
+      var key = arguments[i];
+      if (data[key] !== undefined && data[key] !== null) return Array.isArray(data[key]) ? data[key].join(', ') : data[key];
+    }
+    return '';
+  }
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;padding:28px;color:#222;">
+      <h2 style="margin:0 0 6px 0;color:#0369a1;">TJET RECEIPT & EXPENDITURE</h2>
+      <div style="margin-bottom:18px;color:#555;">Reference: <b>${escapeHtml(docRef)}</b></div>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding:9px;border:1px solid #ddd;"><b>Date</b></td>
+          <td style="padding:9px;border:1px solid #ddd;">${escapeHtml(field('date', 'DATE', 'Date'))}</td>
+        </tr>
+        <tr>
+          <td style="padding:9px;border:1px solid #ddd;"><b>Team</b></td>
+          <td style="padding:9px;border:1px solid #ddd;">${escapeHtml(field('teamNo', 'TEAM_NO', 'Team No'))}</td>
+        </tr>
+        <tr>
+          <td style="padding:9px;border:1px solid #ddd;"><b>Received</b></td>
+          <td style="padding:9px;border:1px solid #ddd;">${escapeHtml(field('received', 'RECEIVED'))} / Qty: ${escapeHtml(field('receivedQty', 'RECEIVED_QTY'))}</td>
+        </tr>
+        <tr>
+          <td style="padding:9px;border:1px solid #ddd;"><b>Recipient Name</b></td>
+          <td style="padding:9px;border:1px solid #ddd;">${escapeHtml(field('recipientName', 'RECIPIENT_NAME'))}</td>
+        </tr>
+        <tr>
+          <td style="padding:9px;border:1px solid #ddd;"><b>Expended</b></td>
+          <td style="padding:9px;border:1px solid #ddd;">${escapeHtml(field('expended', 'EXPENDED'))} / Qty: ${escapeHtml(field('expendedQty', 'EXPENDED_QTY'))}</td>
+        </tr>
+        <tr>
+          <td style="padding:9px;border:1px solid #ddd;"><b>Returned</b></td>
+          <td style="padding:9px;border:1px solid #ddd;">${escapeHtml(field('returned', 'RETURNED'))} / Qty: ${escapeHtml(field('returnedQty', 'RETURNED_QTY'))}</td>
+        </tr>
+        <tr>
+          <td style="padding:9px;border:1px solid #ddd;"><b>Targets Destroyed</b></td>
+          <td style="padding:9px;border:1px solid #ddd;">${escapeHtml(field('typesDestroyed', 'TYPES_DESTROYED'))} / Number: ${escapeHtml(field('numberDestroyed', 'NUMBER_DESTROYED'))}</td>
+        </tr>
+        <tr>
+          <td style="padding:9px;border:1px solid #ddd;"><b>Misfired Igniters</b></td>
+          <td style="padding:9px;border:1px solid #ddd;">${escapeHtml(field('misfiredIgniters', 'MISFIRED_IGNITERS'))}</td>
+        </tr>
+      </table>
+      <div style="margin-top:48px;">Signature: ______________________________</div>
+    </div>`;
+
+  return createPdfFile(html, docRef, TJET_RECEIPT_EXPENDITURE_PDF_FOLDER_ID);
 }

@@ -139,13 +139,13 @@
             if (typeof google !== 'undefined' && google.script && google.script.run) {
               google.script.run.withSuccessHandler(function(res){
                 if (res && res.success) {
-                  alert('OHC saved. Ref: ' + res.ref);
+                  showCustomModal('OHC saved', 'Certificate saved. Ref: ' + res.ref, 'success', res.pdfUrl);
                   ohcReset();
                 } else {
-                  alert('Save failed: ' + (res && res.error));
+                  showCustomModal('Save failed', (res && res.error) || 'Unknown error', 'error');
                 }
               }).withFailureHandler(function(err){
-                alert('Network/Error: ' + err.toString());
+                showCustomModal('Network/Error', err.toString(), 'error');
               }).processOHC(data);
             } else {
               alert('Not running in GAS environment. Simulated submit.');

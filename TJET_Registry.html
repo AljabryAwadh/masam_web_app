@@ -105,8 +105,8 @@ document.addEventListener('DOMContentLoaded', function(){
     data.items=JSON.stringify(items);
     if(typeof google!=='undefined'&&google.script&&google.script.run){
       google.script.run.withSuccessHandler(res=>{
-        if(res&&res.success){alert('Saved. Ref: '+res.ref); tjetReset();} else {alert('Save failed: '+(res&&res.error));}
-      }).withFailureHandler(err=>alert('Error: '+err.toString())).processTJET(data);
+        if(res&&res.success){showCustomModal('Saved', 'Registry saved. Ref: '+res.ref, 'success', res.pdfUrl); tjetReset();} else {showCustomModal('Save failed', (res&&res.error)||'Unknown error', 'error');}
+      }).withFailureHandler(err=>showCustomModal('Error', err.toString(), 'error')).processTJET(data);
     } else {alert('Not running in GAS.');}
   };
   addTjetRow();

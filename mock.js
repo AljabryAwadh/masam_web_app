@@ -5,8 +5,17 @@
   let successHandler = null;
   let failureHandler = null;
 
-  function makeRef(prefix) {
-    return `${prefix}-${Date.now()}`;
+  const counters = {};
+
+  function makeRef(prefix, teamNo, width) {
+    const team = String(teamNo || 'TEAM').trim().replace(/[^A-Za-z0-9-]/g, '_') || 'TEAM';
+    const key = `${prefix}_${team}`;
+    counters[key] = (counters[key] || 0) + 1;
+    return `${prefix}_${team}_${String(counters[key]).padStart(width, '0')}`;
+  }
+
+  function localPdfUrl(ref) {
+    return `${window.location.origin}/local-pdf/${encodeURIComponent(ref)}.pdf`;
   }
 
   function respond(result) {
@@ -43,26 +52,30 @@
     },
     processForm(data) {
       console.log('Local mock processForm:', data);
+      const ref = makeRef('DWS', data.teamNo, 5);
       respond({
         success: true,
-        ref: makeRef('LOCAL-DWS'),
-        pdfUrl: window.location.href
+        ref,
+        pdfUrl: localPdfUrl(ref)
       });
       return runner;
     },
     processOHC(data) {
       console.log('Local mock processOHC:', data);
-      respond({ success: true, ref: makeRef('LOCAL-OHC') });
+      const ref = makeRef('OHC', data.teamNo, 5);
+      respond({ success: true, ref, pdfUrl: localPdfUrl(ref) });
       return runner;
     },
     processTJET(data) {
       console.log('Local mock processTJET:', data);
-      respond({ success: true, ref: makeRef('LOCAL-TJET') });
+      const ref = makeRef('TJET-REG', data.teamNo, 5);
+      respond({ success: true, ref, pdfUrl: localPdfUrl(ref) });
       return runner;
     },
     processTJETReceiptAndExpenditure(data) {
       console.log('Local mock processTJETReceiptAndExpenditure:', data);
-      respond({ success: true, ref: makeRef('LOCAL-TJET-REX') });
+      const ref = makeRef('TJET-REC-EXP', data.teamNo, 3);
+      respond({ success: true, ref, pdfUrl: localPdfUrl(ref) });
       return runner;
     },
     simulateFailure(message) {

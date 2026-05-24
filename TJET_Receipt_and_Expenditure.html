@@ -55,19 +55,20 @@
         <form id="tjetReceiptForm">
           <div class="row g-3 mb-2">
             <div class="col-md-3"><label class="form-label">DATE / تاريخ</label><input name="date" type="date" class="form-control" required></div>
+            <div class="col-md-3"><label class="form-label">TEAM # / رقم الفريق</label><input name="teamNo" type="text" class="form-control" required></div>
             <div class="col-md-3"><label class="form-label">RECEIVED / العناصر المستلم‬</label><input name="received" type="text" class="form-control"></div>
             <div class="col-md-3"><label class="form-label">QTY / الكمية (received)</label><input name="receivedQty" type="number" class="form-control" min="0"></div>
-            <div class="col-md-3"><label class="form-label">RECIPIENT NAME / اسم المستلم</label><input name="recipientName" type="text" class="form-control"></div>
           </div>
 
           <div class="row g-3 mb-2">
+            <div class="col-md-3"><label class="form-label">RECIPIENT NAME / اسم المستلم</label><input name="recipientName" type="text" class="form-control"></div>
             <div class="col-md-3"><label class="form-label">EXPENDED / مستخدم</label><input name="expended" type="text" class="form-control"></div>
             <div class="col-md-3"><label class="form-label">QTY / الكمية (expended)</label><input name="expendedQty" type="number" class="form-control" min="0"></div>
             <div class="col-md-3"><label class="form-label">RETURNED / تم الإرجاع</label><input name="returned" type="text" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">QTY / الكمية (returned)</label><input name="returnedQty" type="number" class="form-control" min="0"></div>
           </div>
 
           <div class="row g-3 mb-2">
+            <div class="col-md-3"><label class="form-label">QTY / الكمية (returned)</label><input name="returnedQty" type="number" class="form-control" min="0"></div>
             <div class="col-md-6"><label class="form-label">TYPE OF TARGETS DESTROYED / أنواع األهداف التي تم تدميرها</label><input name="typesDestroyed" type="text" class="form-control"></div>
             <div class="col-md-3"><label class="form-label">NUMBER OF TARGETS DESTROYED</label><input name="numberDestroyed" type="number" class="form-control" min="0"></div>
             <div class="col-md-3"><label class="form-label">MISFIRED IGNITERS / فشل في عمل المشعِالت</label><input name="misfiredIgniters" type="number" class="form-control" min="0"></div>
@@ -89,6 +90,7 @@
         docRef: data.docRef || '',
         timestamp: new Date().toISOString(),
         date: data.date || '',
+        teamNo: data.teamNo || '',
         received: data.received || '',
         receivedQty: data.receivedQty || '',
         recipientName: data.recipientName || '',
@@ -102,9 +104,9 @@
       };
       if(typeof google !== 'undefined' && google.script && google.script.run){
         google.script.run.withSuccessHandler(res=>{
-          if(res && res.success){ alert('Saved. Ref: ' + (res.ref||'n/a')); document.getElementById('tjetReceiptForm').reset(); }
-          else alert('Save failed: '+(res&&res.error));
-        }).withFailureHandler(err=>alert('Error: '+err.message||err)).processTJETReceiptAndExpenditure(payload);
+          if(res && res.success){ showCustomModal('Saved', 'Receipt & Expenditure saved. Ref: ' + (res.ref||'n/a'), 'success', res.pdfUrl); document.getElementById('tjetReceiptForm').reset(); }
+          else showCustomModal('Save failed', (res&&res.error)||'Unknown error', 'error');
+        }).withFailureHandler(err=>showCustomModal('Error', (err.message||err).toString(), 'error')).processTJETReceiptAndExpenditure(payload);
       } else {
         alert('Not running in GAS environment.');
       }
