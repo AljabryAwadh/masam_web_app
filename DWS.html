@@ -309,7 +309,59 @@
                 <div class="col-md-1 text-center">Action</div>
             </div>
 
-            <div id="erwList" class="mb-4"></div>
+            <div id="erwList" class="mb-4">
+                <div class="erw-row shadow-sm border rounded p-3 mb-3 bg-white" id="row_initial">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-2">
+                            <label class="d-md-none small fw-bold">EO Coordinates N / الإحداثيات الشمالية</label>
+                            <input type="text" class="form-control eoN coord-val" placeholder="16.21.20.61"
+                                pattern="^(1[2-8])\.([0-5]\d)\.([0-5]\d(\.\d+)?)$">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="d-md-none small fw-bold">EO Coordinates E / الإحداثيات الشرقية</label>
+                            <input type="text" class="form-control eoE coord-val" placeholder="042.52.35.58"
+                                pattern="^(0?4[2-9]|0?5[0-4])\.([0-5]\d)\.([0-5]\d(\.\d+)?)$">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="d-md-none small fw-bold">EO Type / نوع</label>
+                            <select class="form-select eoType">
+                                <option value="AP">AP / لغم أفراد</option>
+                                <option value="AT">AT / لغم عربات</option>
+                                <option value="IED">IED / عبوة ناسفة</option>
+                                <option value="UXO">UXO / قذيفة غير منفجرة</option>
+                                <option value="FUZES">FUZES / صواعق</option>
+                                <option value="PROJECTILES">PROJ / مقذوف</option>
+                                <option value="PRESSURE PLATES">PLATE / لوحة ضغط</option>
+                                <option value="ROUNDS">ROUNDS / طلقات</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="d-md-none small fw-bold">EO Description / وصف</label>
+                            <input type="text" class="form-control eoDesc" placeholder="Description / Type model">
+                        </div>
+                        <div class="col-md-1 text-center">
+                            <label class="d-md-none small d-block">Removed / نقل</label>
+                            <input type="checkbox" class="form-check-input removed" onchange="toggleStatus('initial', 'rem')" style="width:22px;height:22px;">
+                        </div>
+                        <div class="col-md-1 text-center">
+                            <label class="d-md-none small d-block">Left / ترك</label>
+                            <input type="checkbox" class="form-check-input leftOnSite" onchange="toggleStatus('initial', 'left')" style="width:22px;height:22px;">
+                        </div>
+                        <div class="col-md-1 text-center">
+                            <button type="button" class="btn btn-outline-danger btn-sm w-100 py-2" onclick="deleteRow('initial')">Delete</button>
+                        </div>
+                        
+                        <div class="col-md-8 mt-2 pt-2 border-top">
+                            <label class="small fw-bold text-secondary">Upload Photo / صورة الذخيرة (Auto-resizes):</label>
+                            <input type="file" class="form-control form-control-sm eoFile" accept="image/*" onchange="handleImagePreview(event, 'initial')">
+                            <input type="hidden" class="existingImageUrl">
+                        </div>
+                        <div class="col-md-4 mt-2 pt-2 border-top d-none text-center" id="preview_container_initial">
+                            <img id="img_prev_initial" src="#" class="img-preview" alt="Image Preview">
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- SUBMIT BUTTONS -->
             <div class="row g-3">
