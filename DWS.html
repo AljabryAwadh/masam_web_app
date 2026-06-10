@@ -104,6 +104,23 @@
             border-radius: 6px;
             border: 1px dashed #cbd5e1;
         }
+        .crud-panel {
+            border: 1px solid #dbeafe;
+            background: #eff6ff;
+            border-radius: 8px;
+            padding: 18px;
+            margin-bottom: 24px;
+        }
+        .edit-banner {
+            display: none;
+            border: 1px solid #f59e0b;
+            background: #fffbeb;
+            color: #92400e;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 18px;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -155,8 +172,26 @@
             <h1 class="fw-extrabold text-slate-900" style="font-size: 1.85rem; color: #1e293b;">DAILY WORKSHEET / ورشة العمل اليومي</h1>
             <p class="text-muted text-sm">Explosive Ordnance Disposal (EOD) Operations Command</p>
         </div>
+
+        <div class="crud-panel">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Find Existing Submission / البحث عن تقرير سابق</label>
+                    <input type="text" id="lookupDocRef" class="form-control" placeholder="DWS_T34_00001">
+                </div>
+                <div class="col-md-3">
+                    <button type="button" class="btn btn-outline-primary w-100" onclick="loadDwsSubmission()">Load / تحميل</button>
+                </div>
+                <div class="col-md-3">
+                    <button type="button" class="btn btn-outline-secondary w-100" onclick="exitEditMode()">New / جديد</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="editBanner" class="edit-banner"></div>
         
         <form id="eodForm">
+            <input type="hidden" name="docRef" id="docRef">
             <!-- SECTION 1: TASK DETAILS -->
             <div class="section-header">1. Task Details / تفاصيل المهمة</div>
             <div class="p-4 border border-top-0 rounded-bottom mb-4 bg-light bg-opacity-40">
@@ -278,10 +313,13 @@
 
             <!-- SUBMIT BUTTONS -->
             <div class="row g-3">
-                <div class="col-md-8">
-                    <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm">Submit Worksheet / إرسال التقرير اليومي</button>
+                <div class="col-md-6">
+                    <button type="submit" id="submitBtn" class="btn btn-primary btn-lg w-100 shadow-sm">Submit Worksheet / إرسال التقرير اليومي</button>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <button type="button" id="deleteSubmissionBtn" class="btn btn-outline-danger btn-lg w-100 d-none" onclick="deleteLoadedSubmission()">Delete / حذف</button>
+                </div>
+                <div class="col-md-3">
                     <button type="button" class="btn btn-outline-secondary btn-lg w-100" onclick="confirmReset()">Clear Form / مسح الاستمارة</button>
                 </div>
             </div>
@@ -290,6 +328,121 @@
 </div>
 
 <script>
+    let currentDwsRef = "";
+
+    function setLoaderVisible(visible) {
+        document.getElementById('loader').style.display = visible ? 'flex' : 'none';
+    }
+
+    function setEditMode(docRef) {
+        currentDwsRef = docRef || "";
+        document.getElementById('docRef').value = currentDwsRef;
+        document.getElementById('submitBtn').innerText = currentDwsRef
+            ? "Update Worksheet / تحديث التقرير اليومي"
+            : "Submit Worksheet / إرسال التقرير اليومي";
+        document.getElementById('deleteSubmissionBtn').classList.toggle('d-none', !currentDwsRef);
+        const banner = document.getElementById('editBanner');
+        if (currentDwsRef) {
+            banner.innerText = "Editing submission / تعديل التقرير: " + currentDwsRef;
+            banner.style.display = 'block';
+        } else {
+            banner.innerText = "";
+            banner.style.display = 'none';
+        }
+    }
+
+    function setFieldValue(name, value) {
+        const field = document.getElementsByName(name)[0];
+        if (field) field.value = value || "";
+    }
+
+    function populateDwsForm(payload) {
+        const data = payload.formData || {};
+        resetFullForm(false);
+        setEditMode(payload.ref || data.docRef || "");
+        setFieldValue('taskDetails', data.taskDetails);
+        setFieldValue('taskStartDate', data.taskStartDate);
+        setFieldValue('taskCompleteDate', data.taskCompleteDate);
+        setFieldValue('date', data.date);
+        setFieldValue('teamNo', data.teamNo);
+        setFieldValue('siteAddress', data.siteAddress);
+        setFieldValue('teamLeader', data.teamLeader);
+        setFieldValue('gpsN', data.gpsN);
+        setFieldValue('gpsE', data.gpsE);
+        setFieldValue('f3lBlackCleared', data.f3lBlackCleared);
+        setFieldValue('f3lBlackQA', data.f3lBlackQA);
+        setFieldValue('f3lBlackComp', data.f3lBlackComp);
+        setFieldValue('f3lRedCleared', data.f3lRedCleared);
+        setFieldValue('f3lRedQA', data.f3lRedQA);
+        setFieldValue('f3lRedComp', data.f3lRedComp);
+        setFieldValue('largeLoopCleared', data.largeLoopCleared);
+        setFieldValue('largeLoopQA', data.largeLoopQA);
+        setFieldValue('largeLoopComp', data.largeLoopComp);
+        setFieldValue('workDetails', data.workDetails);
+
+        const list = document.getElementById('erwList');
+        list.innerHTML = "";
+        const rows = payload.erwRows && payload.erwRows.length ? payload.erwRows : [{}];
+        rows.forEach(row => addErwRow(row));
+    }
+
+    function loadDwsSubmission() {
+        const docRef = document.getElementById('lookupDocRef').value.trim();
+        if (!docRef) {
+            showCustomModal("Reference Required", "Enter a Doc_Ref_# to load an existing worksheet.", "error");
+            return;
+        }
+        if (!(typeof google !== 'undefined' && google.script && google.script.run)) {
+            showCustomModal("Unavailable", "CRUD loading is available in Apps Script or local mock mode only.", "error");
+            return;
+        }
+
+        setLoaderVisible(true);
+        google.script.run
+            .withSuccessHandler((res) => {
+                setLoaderVisible(false);
+                if (res && res.success) {
+                    populateDwsForm(res);
+                    showCustomModal("Loaded / تم التحميل", "Worksheet loaded for editing: " + res.ref, "success", res.formData && res.formData.pdfUrl);
+                } else {
+                    showCustomModal("Load Error", (res && res.error) || "No matching submission found.", "error");
+                }
+            })
+            .withFailureHandler((err) => {
+                setLoaderVisible(false);
+                showCustomModal("Network/System Error", err.toString(), "error");
+            })
+            .getDwsSubmission(docRef);
+    }
+
+    function exitEditMode() {
+        document.getElementById('lookupDocRef').value = "";
+        resetFullForm(true);
+    }
+
+    function deleteLoadedSubmission() {
+        const docRef = document.getElementById('docRef').value;
+        if (!docRef) return;
+        if (!confirm("Mark this submission as deleted? Ref: " + docRef)) return;
+
+        setLoaderVisible(true);
+        google.script.run
+            .withSuccessHandler((res) => {
+                setLoaderVisible(false);
+                if (res && res.success) {
+                    showCustomModal("Deleted / تم الحذف", "Submission marked as deleted: " + res.ref, "success");
+                    exitEditMode();
+                } else {
+                    showCustomModal("Delete Error", (res && res.error) || "Unable to delete submission.", "error");
+                }
+            })
+            .withFailureHandler((err) => {
+                setLoaderVisible(false);
+                showCustomModal("Network/System Error", err.toString(), "error");
+            })
+            .deleteDwsSubmission(docRef);
+    }
+
     /**
      * Toggles Removed vs Left on Site checkboxes (Mutually Exclusive)
      */
@@ -328,10 +481,10 @@
     /**
      * Dynamically adds a new ERW Find row to the UI
      */
-    function addErwRow() {
+    function addErwRow(existingData = {}) {
         const list = document.getElementById('erwList');
         if (!list) return;
-        const id = Date.now();
+        const id = Date.now() + Math.floor(Math.random() * 1000);
         const html = `
             <div class="erw-row shadow-sm border rounded p-3 mb-3 bg-white" id="row_${id}">
                 <div class="row g-2 align-items-center">
@@ -377,6 +530,7 @@
                     <div class="col-md-8 mt-2 pt-2 border-top">
                         <label class="small fw-bold text-secondary">Upload Photo / صورة الذخيرة (Auto-resizes):</label>
                         <input type="file" class="form-control form-control-sm eoFile" accept="image/*" onchange="handleImagePreview(event, ${id})">
+                        <input type="hidden" class="existingImageUrl">
                     </div>
                     <div class="col-md-4 mt-2 pt-2 border-top d-none text-center" id="preview_container_${id}">
                         <img id="img_prev_${id}" src="#" class="img-preview" alt="Image Preview">
@@ -385,6 +539,20 @@
             </div>
         `;
         list.insertAdjacentHTML('beforeend', html);
+        const row = document.getElementById(`row_${id}`);
+        row.querySelector('.eoN').value = existingData.eoN || "";
+        row.querySelector('.eoE').value = existingData.eoE || "";
+        row.querySelector('.eoType').value = existingData.eoType || "AP";
+        row.querySelector('.eoDesc').value = existingData.eoDesc || "";
+        row.querySelector('.removed').checked = Boolean(existingData.removed);
+        row.querySelector('.leftOnSite').checked = Boolean(existingData.leftOnSite);
+        row.querySelector('.existingImageUrl').value = existingData.existingImageUrl || "";
+        if (existingData.existingImageUrl) {
+            const previewContainer = document.getElementById(`preview_container_${id}`);
+            const imgElement = document.getElementById(`img_prev_${id}`);
+            imgElement.src = existingData.existingImageUrl;
+            previewContainer.classList.remove('d-none');
+        }
     }
 
     /**
@@ -467,7 +635,7 @@
         }
     }
 
-    function resetFullForm() {
+    function resetFullForm(clearEditMode = true) {
         document.getElementById('eodForm').reset();
         document.getElementById('erwList').innerHTML = "";
         addErwRow(); 
@@ -475,6 +643,7 @@
         const today = new Date().toISOString().split('T')[0];
         document.getElementsByName('date')[0].value = today;
         document.getElementsByName('taskStartDate')[0].value = today;
+        if (clearEditMode) setEditMode("");
     }
 
     document.getElementById('eodForm').onsubmit = async function(e) {
@@ -487,9 +656,10 @@
             const eoE = row.querySelector('.eoE').value.trim();
             const eoDesc = row.querySelector('.eoDesc').value.trim();
             const fileInput = row.querySelector('.eoFile').files[0];
+            const existingImageUrl = row.querySelector('.existingImageUrl')?.value || "";
             const rem = row.querySelector('.removed').checked;
             const left = row.querySelector('.leftOnSite').checked;
-            const hasAnyErwData = Boolean(eoN || eoE || eoDesc || fileInput || rem || left);
+            const hasAnyErwData = Boolean(eoN || eoE || eoDesc || fileInput || existingImageUrl || rem || left);
 
             if (!hasAnyErwData) {
                 continue;
@@ -525,7 +695,7 @@
             activeErwRows.push(row);
         }
 
-        document.getElementById('loader').style.display = 'flex';
+        setLoaderVisible(true);
         const formData = new FormData(this);
         const data = Object.fromEntries(formData.entries());
 
@@ -544,19 +714,21 @@
                     eoDesc: row.querySelector('.eoDesc').value,
                     removed: row.querySelector('.removed').checked,
                     leftOnSite: row.querySelector('.leftOnSite').checked,
+                    existingImageUrl: row.querySelector('.existingImageUrl')?.value || "",
                     imageBase64: base64
                 });
             }
             data.erwRows = JSON.stringify(erwRows);
 
             if (typeof google !== 'undefined' && google.script && google.script.run) {
-                google.script.run
+                const runner = google.script.run
                     .withSuccessHandler((res) => {
-                        document.getElementById('loader').style.display = 'none';
+                        setLoaderVisible(false);
                         if (res && res.success) {
+                            const wasUpdate = Boolean(data.docRef);
                             showCustomModal(
-                                "Success! / تم الإرسال بنجاح", 
-                                "Worksheet submitted successfully. Unique Ref: " + res.ref, 
+                                wasUpdate ? "Updated! / تم التحديث بنجاح" : "Success! / تم الإرسال بنجاح", 
+                                (wasUpdate ? "Worksheet updated successfully. Ref: " : "Worksheet submitted successfully. Unique Ref: ") + res.ref, 
                                 "success",
                                 res.pdfUrl
                             );
@@ -566,21 +738,25 @@
                         }
                     })
                     .withFailureHandler((err) => {
-                        document.getElementById('loader').style.display = 'none';
+                        setLoaderVisible(false);
                         showCustomModal("Network/System Error", err.toString(), "error");
-                    })
-                    .processForm(data);
+                    });
+                if (data.docRef) {
+                    runner.updateDwsSubmission(data);
+                } else {
+                    runner.processForm(data);
+                }
             } else {
                 // Testing simulation
                 setTimeout(() => {
-                    document.getElementById('loader').style.display = 'none';
+                    setLoaderVisible(false);
                     showCustomModal("Demo Success Mode", "Submitted successfully (Simulation Mode).", "success");
                     resetFullForm();
                 }, 1500);
             }
 
         } catch (error) {
-            document.getElementById('loader').style.display = 'none';
+            setLoaderVisible(false);
             showCustomModal("Processing Error", error.toString(), "error");
         }
     };

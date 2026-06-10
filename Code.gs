@@ -13,6 +13,15 @@ const DOC_REF_CONFIG = {
   TJET_REC_EXP: { prefix: 'TJET-REC-EXP', width: 3 }
 };
 
+const RESPONSE_SHEETS = {
+  DWS_TASK: ['DWS_Form_Task_Response', 'Form_Task_Response'],
+  DWS_WORK_SUMMARY: ['DWS_Form_Work_Summary_Response', 'Form_Work_Summary_Response'],
+  DWS_ERW_FINDS: ['DWS_Form_ERW_Finds_Response', 'Form_ERW_Finds_Response'],
+  OHC: ['OHC_Form_Response'],
+  TJET_REGISTRY: ['TJET_Registry_Form_Response'],
+  TJET_RECEIPT_EXPENDITURE: ['TJET_Receipt_and_Expenditure_Form_Response']
+};
+
 /**
  * Serves the HTML file to the browser dynamically based on URL parameters.
  * Handles the EOD Web Portal page list:
@@ -103,6 +112,71 @@ function getNextDocRef(formKey, teamNo) {
   }
 }
 
+function getRequiredSheet(ss, sheetNames) {
+  const names = Array.isArray(sheetNames) ? sheetNames : [sheetNames];
+  for (let i = 0; i < names.length; i++) {
+    const sheet = ss.getSheetByName(names[i]);
+    if (sheet) return sheet;
+  }
+  throw new Error("Response sheet not found. Tried: " + names.join(', '));
+}
+
+function getSubmittedBy() {
+  try {
+    return Session.getActiveUser().getEmail() || '';
+  } catch (err) {
+    return '';
+  }
+}
+
+function getDriveFolderUrl(folderId) {
+  try {
+    return DriveApp.getFolderById(folderId).getUrl();
+  } catch (err) {
+    return '';
+  }
+}
+
+function getValidationLists(requestedKeys) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Validation_Lists');
+  if (!sheet) return {};
+
+  const keys = Array.isArray(requestedKeys) ? requestedKeys : [];
+  const keyFilter = keys.length ? keys.reduce(function(map, key) {
+    map[String(key)] = true;
+    return map;
+  }, {}) : null;
+
+  const values = sheet.getDataRange().getValues();
+  const lists = {};
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const listKey = String(row[0] || '').trim();
+    const value = String(row[1] || '').trim();
+    const active = row[4] === true || String(row[4]).toUpperCase() === 'TRUE';
+    if (!listKey || !value || !active) continue;
+    if (keyFilter && !keyFilter[listKey]) continue;
+
+    if (!lists[listKey]) lists[listKey] = [];
+    lists[listKey].push({
+      value: value,
+      labelEn: String(row[2] || value).trim(),
+      labelAr: String(row[3] || '').trim(),
+      sortOrder: Number(row[5] || 0),
+      notes: String(row[6] || '').trim()
+    });
+  }
+
+  Object.keys(lists).forEach(function(key) {
+    lists[key].sort(function(a, b) {
+      return (a.sortOrder || 0) - (b.sortOrder || 0) || a.value.localeCompare(b.value);
+    });
+  });
+
+  return lists;
+}
+
 function createPdfFile(html, docRef, folderId) {
   const folder = DriveApp.getFolderById(folderId);
   const blob = Utilities.newBlob(html, 'text/html', docRef + '.html');
@@ -119,6 +193,190 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function toInputDate(value) {
+  if (!value) return '';
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  const text = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.substring(0, 10);
+  const parsed = new Date(text);
+  if (!isNaN(parsed.getTime())) {
+    return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return text;
+}
+
+function findRowsByDocRef(sheet, docRef) {
+  const target = String(docRef || '').trim();
+  if (!target) return [];
+  const values = sheet.getDataRange().getValues();
+  const matches = [];
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0] || '').trim() === target || String(values[i][1] || '').trim() === target) {
+      matches.push({ rowNumber: i + 1, values: values[i] });
+    }
+  }
+  return matches;
+}
+
+function dwsTaskRowFromForm(formData, docRef, timestamp, pdfUrl, folderUrl, status, submittedBy, createdTimestamp) {
+  return [
+    docRef,
+    timestamp,
+    formData.taskDetails || '',
+    formData.taskStartDate || '',
+    formData.taskCompleteDate || 'N/A',
+    formData.date || '',
+    formData.teamNo || '',
+    formData.siteAddress || '',
+    formData.teamLeader || '',
+    formData.gpsN || '',
+    formData.gpsE || '',
+    pdfUrl || '',
+    folderUrl || '',
+    status || 'Submitted',
+    submittedBy || '',
+    createdTimestamp || timestamp,
+    timestamp
+  ];
+}
+
+function dwsSummaryRowFromForm(formData, docRef, timestamp, pdfUrl, folderUrl, status, submittedBy, createdTimestamp) {
+  return [
+    docRef,
+    timestamp,
+    formData.date || '',
+    formData.teamNo || '',
+    formData.siteAddress || '',
+    formData.teamLeader || '',
+    formData.gpsN || '',
+    formData.gpsE || '',
+    formData.f3lBlackCleared || 0,
+    formData.f3lBlackQA || 0,
+    formData.f3lBlackComp || 0,
+    formData.f3lRedCleared || 0,
+    formData.f3lRedQA || 0,
+    formData.f3lRedComp || 0,
+    formData.largeLoopCleared || 0,
+    formData.largeLoopQA || 0,
+    formData.largeLoopComp || 0,
+    formData.workDetails || '',
+    pdfUrl || '',
+    folderUrl || '',
+    status || 'Submitted',
+    submittedBy || '',
+    createdTimestamp || timestamp,
+    timestamp
+  ];
+}
+
+function dwsErwRowFromForm(row, formData, docRef, timestamp, pdfUrl, imageFolderUrl, status, submittedBy, createdTimestamp, index) {
+  let imageUrl = row.existingImageUrl || '';
+  if (row.imageBase64) {
+    const latClean = (row.eoN || '0').replace(/[\s\.]+/g, '_');
+    const lonClean = (row.eoE || '0').replace(/[\s\.]+/g, '_');
+    const itemNo = String((index || 0) + 1).padStart(2, '0');
+    const fileName = `${docRef}_${formData.teamNo}_${formData.date}_ERW${itemNo}_${row.eoType || 'EO'}_${latClean}_${lonClean}`;
+    imageUrl = saveToDrive(row.imageBase64, fileName, ERW_IMAGE_FOLDER_ID);
+  }
+  const imageFormula = imageUrl ? `=IMAGE("${imageUrl}")` : "No Image";
+
+  return [
+    docRef,
+    timestamp,
+    formData.date || '',
+    formData.teamNo || '',
+    formData.siteAddress || '',
+    formData.teamLeader || '',
+    formData.gpsN || '',
+    formData.gpsE || '',
+    row.eoN || '',
+    row.eoE || '',
+    row.eoType || '',
+    row.eoDesc || '',
+    row.removed ? "Yes" : "No",
+    row.leftOnSite ? "Yes" : "No",
+    imageFormula,
+    imageUrl,
+    imageFolderUrl || '',
+    pdfUrl || '',
+    status || 'Submitted',
+    submittedBy || '',
+    createdTimestamp || timestamp,
+    timestamp
+  ];
+}
+
+function getDwsSubmission(docRef) {
+  try {
+    const ref = String(docRef || '').trim();
+    if (!ref) return { success: false, error: 'Please enter a document reference number.' };
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetTask = getRequiredSheet(ss, RESPONSE_SHEETS.DWS_TASK);
+    const sheetSummary = getRequiredSheet(ss, RESPONSE_SHEETS.DWS_WORK_SUMMARY);
+    const sheetERW = getRequiredSheet(ss, RESPONSE_SHEETS.DWS_ERW_FINDS);
+
+    const taskMatch = findRowsByDocRef(sheetTask, ref)[0];
+    if (!taskMatch) return { success: false, error: 'No DWS submission found for ' + ref };
+    if (String(taskMatch.values[13] || '').toLowerCase() === 'deleted') {
+      return { success: false, error: 'This DWS submission is marked as deleted.' };
+    }
+
+    const summaryMatch = findRowsByDocRef(sheetSummary, ref)[0];
+    const task = taskMatch.values;
+    const summary = summaryMatch ? summaryMatch.values : [];
+    const erwRows = findRowsByDocRef(sheetERW, ref)
+      .filter(function(match) { return String(match.values[18] || '').toLowerCase() !== 'deleted'; })
+      .map(function(match) {
+        const row = match.values;
+        return {
+          eoN: row[8] || '',
+          eoE: row[9] || '',
+          eoType: row[10] || '',
+          eoDesc: row[11] || '',
+          removed: String(row[12] || '').toLowerCase() === 'yes',
+          leftOnSite: String(row[13] || '').toLowerCase() === 'yes',
+          existingImageUrl: row[15] || ''
+        };
+      });
+
+    return {
+      success: true,
+      ref: ref,
+      formData: {
+        docRef: ref,
+        taskDetails: task[2] || '',
+        taskStartDate: toInputDate(task[3]),
+        taskCompleteDate: toInputDate(task[4] === 'N/A' ? '' : task[4]),
+        date: toInputDate(task[5]),
+        teamNo: task[6] || '',
+        siteAddress: task[7] || '',
+        teamLeader: task[8] || '',
+        gpsN: task[9] || '',
+        gpsE: task[10] || '',
+        f3lBlackCleared: summary[8] || '',
+        f3lBlackQA: summary[9] || '',
+        f3lBlackComp: summary[10] || '',
+        f3lRedCleared: summary[11] || '',
+        f3lRedQA: summary[12] || '',
+        f3lRedComp: summary[13] || '',
+        largeLoopCleared: summary[14] || '',
+        largeLoopQA: summary[15] || '',
+        largeLoopComp: summary[16] || '',
+        workDetails: summary[17] || '',
+        pdfUrl: task[11] || '',
+        folderUrl: task[12] || '',
+        status: task[13] || ''
+      },
+      erwRows: erwRows
+    };
+  } catch (err) {
+    return { success: false, error: err.toString() };
+  }
+}
+
 /**
  * Processes the form data, saves to 3 sheets, and generates a PDF.
  */
@@ -126,18 +384,18 @@ function processForm(formData) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const timestamp = new Date();
   const docRef = getNextDocRef('DWS', formData.teamNo);
+  const submittedBy = getSubmittedBy();
   
   try {
-    const sheetTask = ss.getSheetByName('Form_Task_Response');
-    if (!sheetTask) throw new Error("Sheet 'Form_Task_Response' not found.");
-    const sheetSummary = ss.getSheetByName('Form_Work_Summary_Response');
-    if (!sheetSummary) throw new Error("Sheet 'Form_Work_Summary_Response' not found.");
-    const sheetERW = ss.getSheetByName('Form_ERW_Finds_Response');
-    if (!sheetERW) throw new Error("Sheet 'Form_ERW_Finds_Response' not found.");
+    const sheetTask = getRequiredSheet(ss, RESPONSE_SHEETS.DWS_TASK);
+    const sheetSummary = getRequiredSheet(ss, RESPONSE_SHEETS.DWS_WORK_SUMMARY);
+    const sheetERW = getRequiredSheet(ss, RESPONSE_SHEETS.DWS_ERW_FINDS);
     
     const erwData = JSON.parse(formData.erwRows || '[]');
     const processedErwRows = [];
     const erwSheetRows = [];
+    const dwsPdfFolderUrl = getDriveFolderUrl(DWS_PDF_FOLDER_ID);
+    const erwImageFolderUrl = getDriveFolderUrl(ERW_IMAGE_FOLDER_ID);
 
     erwData.forEach((row, idx) => {
       let imageUrl = "";
@@ -153,6 +411,7 @@ function processForm(formData) {
       
       erwSheetRows.push([
         docRef, 
+        timestamp,
         formData.date, 
         formData.teamNo, 
         formData.siteAddress, 
@@ -167,7 +426,12 @@ function processForm(formData) {
         row.leftOnSite ? "Yes" : "No", 
         imageFormula,
         imageUrl,
-        ''
+        erwImageFolderUrl,
+        '',
+        'Submitted',
+        submittedBy,
+        timestamp,
+        timestamp
       ]);
 
       processedErwRows.push({
@@ -179,8 +443,8 @@ function processForm(formData) {
     const pdfUrl = createPDF(formData, docRef, processedErwRows);
 
     sheetTask.appendRow([
-      timestamp, 
       docRef, 
+      timestamp, 
       formData.taskDetails, 
       formData.taskStartDate, 
       formData.taskCompleteDate || 'N/A', 
@@ -190,11 +454,17 @@ function processForm(formData) {
       formData.teamLeader, 
       formData.gpsN, 
       formData.gpsE,
-      pdfUrl
+      pdfUrl,
+      dwsPdfFolderUrl,
+      'Submitted',
+      submittedBy,
+      timestamp,
+      timestamp
     ]);
 
     sheetSummary.appendRow([
       docRef, 
+      timestamp,
       formData.date, 
       formData.teamNo, 
       formData.siteAddress, 
@@ -211,22 +481,117 @@ function processForm(formData) {
       formData.largeLoopQA || 0, 
       formData.largeLoopComp || 0,
       formData.workDetails || '',
-      pdfUrl
+      pdfUrl,
+      dwsPdfFolderUrl,
+      'Submitted',
+      submittedBy,
+      timestamp,
+      timestamp
     ]);
 
     erwSheetRows.forEach(function(sheetRow) {
-      sheetRow[sheetRow.length - 1] = pdfUrl;
+      sheetRow[17] = pdfUrl;
       const lastRow = sheetERW.getLastRow() + 1;
       sheetERW.appendRow(sheetRow);
-      if (sheetRow[13] && sheetRow[13] !== 'No Image') {
+      if (sheetRow[14] && sheetRow[14] !== 'No Image') {
         sheetERW.setRowHeight(lastRow, 200);
-        sheetERW.setColumnWidth(14, 200);
+        sheetERW.setColumnWidth(15, 200);
       }
     });
 
-    return { success: true, ref: docRef, pdfUrl: pdfUrl };
+    return { success: true, ref: docRef, pdfUrl: pdfUrl, folderUrl: dwsPdfFolderUrl };
   } catch (e) {
     return { success: false, error: e.toString() };
+  }
+}
+
+function updateDwsSubmission(formData) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const timestamp = new Date();
+  const docRef = String(formData.docRef || '').trim();
+  const submittedBy = getSubmittedBy();
+
+  if (!docRef) return { success: false, error: 'Document reference is required for updates.' };
+
+  try {
+    const sheetTask = getRequiredSheet(ss, RESPONSE_SHEETS.DWS_TASK);
+    const sheetSummary = getRequiredSheet(ss, RESPONSE_SHEETS.DWS_WORK_SUMMARY);
+    const sheetERW = getRequiredSheet(ss, RESPONSE_SHEETS.DWS_ERW_FINDS);
+
+    const taskMatch = findRowsByDocRef(sheetTask, docRef)[0];
+    const summaryMatch = findRowsByDocRef(sheetSummary, docRef)[0];
+    if (!taskMatch || !summaryMatch) {
+      return { success: false, error: 'Cannot update because the original DWS rows were not found.' };
+    }
+
+    const dwsPdfFolderUrl = getDriveFolderUrl(DWS_PDF_FOLDER_ID);
+    const erwImageFolderUrl = getDriveFolderUrl(ERW_IMAGE_FOLDER_ID);
+    const erwData = JSON.parse(formData.erwRows || '[]');
+    const pdfUrl = createPDF(formData, docRef, erwData);
+
+    const createdTaskTimestamp = taskMatch.values[15] || taskMatch.values[1] || timestamp;
+    const createdSummaryTimestamp = summaryMatch.values[22] || summaryMatch.values[1] || timestamp;
+
+    sheetTask.getRange(taskMatch.rowNumber, 1, 1, 17).setValues([
+      dwsTaskRowFromForm(formData, docRef, timestamp, pdfUrl, dwsPdfFolderUrl, 'Updated', submittedBy, createdTaskTimestamp)
+    ]);
+    sheetSummary.getRange(summaryMatch.rowNumber, 1, 1, 24).setValues([
+      dwsSummaryRowFromForm(formData, docRef, timestamp, pdfUrl, dwsPdfFolderUrl, 'Updated', submittedBy, createdSummaryTimestamp)
+    ]);
+
+    const oldErwRows = findRowsByDocRef(sheetERW, docRef);
+    oldErwRows.sort(function(a, b) { return b.rowNumber - a.rowNumber; }).forEach(function(match) {
+      sheetERW.deleteRow(match.rowNumber);
+    });
+
+    const newErwRows = erwData.map(function(row, idx) {
+      return dwsErwRowFromForm(row, formData, docRef, timestamp, pdfUrl, erwImageFolderUrl, 'Updated', submittedBy, timestamp, idx);
+    });
+    if (newErwRows.length) {
+      const startRow = sheetERW.getLastRow() + 1;
+      sheetERW.getRange(startRow, 1, newErwRows.length, 22).setValues(newErwRows);
+      for (let i = 0; i < newErwRows.length; i++) {
+        if (newErwRows[i][14] && newErwRows[i][14] !== 'No Image') {
+          sheetERW.setRowHeight(startRow + i, 200);
+        }
+      }
+      sheetERW.setColumnWidth(15, 200);
+    }
+
+    return { success: true, ref: docRef, pdfUrl: pdfUrl, folderUrl: dwsPdfFolderUrl, updated: true };
+  } catch (err) {
+    return { success: false, error: err.toString() };
+  }
+}
+
+function deleteDwsSubmission(docRef) {
+  try {
+    const ref = String(docRef || '').trim();
+    if (!ref) return { success: false, error: 'Document reference is required.' };
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const timestamp = new Date();
+    const submittedBy = getSubmittedBy();
+    const targets = [
+      { sheet: getRequiredSheet(ss, RESPONSE_SHEETS.DWS_TASK), statusCol: 14, submittedByCol: 15, updatedCol: 17 },
+      { sheet: getRequiredSheet(ss, RESPONSE_SHEETS.DWS_WORK_SUMMARY), statusCol: 21, submittedByCol: 22, updatedCol: 24 },
+      { sheet: getRequiredSheet(ss, RESPONSE_SHEETS.DWS_ERW_FINDS), statusCol: 19, submittedByCol: 20, updatedCol: 22 }
+    ];
+
+    let changed = 0;
+    targets.forEach(function(target) {
+      findRowsByDocRef(target.sheet, ref).forEach(function(match) {
+        target.sheet.getRange(match.rowNumber, target.statusCol).setValue('Deleted');
+        target.sheet.getRange(match.rowNumber, target.submittedByCol).setValue(submittedBy);
+        target.sheet.getRange(match.rowNumber, target.updatedCol).setValue(timestamp);
+        changed++;
+      });
+    });
+
+    if (!changed) return { success: false, error: 'No DWS submission found for ' + ref };
+    return { success: true, ref: ref, deleted: true };
+  } catch (err) {
+    return { success: false, error: err.toString() };
   }
 }
 
@@ -259,8 +624,9 @@ function createPDF(data, docRef, erwRows) {
   if (erwRows && erwRows.length > 0) {
     erwRows.forEach((row, idx) => {
       const status = row.removed ? 'Removed / تم النقل' : (row.leftOnSite ? 'Left on Site / ترك بالموقع' : 'N/A');
-      const inlineImg = row.imageBase64 
-        ? `<img src="${row.imageBase64}" style="max-height: 120px; width: auto; border-radius: 4px; display: block; margin: 0 auto;"/>`
+      const imageSrc = row.imageBase64 || row.existingImageUrl || '';
+      const inlineImg = imageSrc 
+        ? `<img src="${imageSrc}" style="max-height: 120px; width: auto; border-radius: 4px; display: block; margin: 0 auto;"/>`
         : '<span style="color:#999; font-size:11px;">No Photo / لا توجد صورة</span>';
 
       erwRowsHtml += `

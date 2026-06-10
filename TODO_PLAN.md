@@ -11,6 +11,13 @@
   - `?page=TJET_Receipt_and_Expenditure`
 - Keep local simulator behavior aligned with Apps Script behavior.
 - Add clear user-facing error messages when a page, sheet, folder, or server function is missing.
+- Add CRUD behavior so submissions can be found, reviewed, updated, and deleted after initial submission.
+- 2026-06-10 progress:
+  - Added first CRUD implementation for DWS.
+  - DWS can now load a submission by `Doc_Ref_#`.
+  - DWS can update the loaded task, work summary, and ERW find rows.
+  - DWS soft-delete marks matching response rows as `Deleted`.
+  - Local simulator mock now supports DWS read, update, and delete calls.
 
 ## 2. Google Sheets Response Structure
 
@@ -30,6 +37,14 @@
   - Created timestamp
   - Updated timestamp
 - Ensure each form writes consistent `Doc_Ref_Number` values to all related rows.
+- 2026-06-10 progress:
+  - Installed Google Drive access for direct Drive/Sheets work.
+  - Confirmed live spreadsheet `DWS_Form`.
+  - Confirmed live DWS response tabs use `DWS_Form_...` names.
+  - Updated DWS backend lookup to support the live prefixed tab names.
+  - Corrected DWS append order so `Doc_Ref_#` and `Timestamp` align with sheet headers.
+  - Added DWS metadata fields for PDF URL, Drive folder URL, submission status, submitted by, created timestamp, and updated timestamp.
+  - Updated live DWS Task, Work Summary, and ERW Finds response headers for the new fields.
 
 ## 3. Document Reference Numbering
 
@@ -172,6 +187,11 @@ TJET_REMARKS
 - Load dropdown lists with `google.script.run`.
 - Cache validation lists for performance.
 - Validate submitted values again on the backend before saving.
+- 2026-06-10 progress:
+  - Created live `Validation_Lists` tab in `DWS_Form`.
+  - Imported initial values from `Ref_1` for `TEAM_NO`, `EO_TYPE`, and `TASK_TYPE`.
+  - Added backend `getValidationLists(requestedKeys)` function.
+  - Added local simulator mock support for `getValidationLists`.
 
 ## 8. Form-Specific Dropdowns
 
@@ -302,6 +322,9 @@ git push
 
 - Dashboard links open all forms.
 - Every form submits successfully.
+- DWS existing submissions can be loaded by `Doc_Ref_#`.
+- DWS loaded submissions can be edited and updated without creating a new reference number.
+- DWS loaded submissions can be marked deleted.
 - Every form creates the correct `Doc_Ref_Number`. Initial implementation complete; real deployment testing still required.
 - Every form writes to the correct Google Sheet.
 - DWS creates PDF and uploads ERW images to the confirmed ERW Images folder.
@@ -318,11 +341,11 @@ git push
 
 ## 14. Priority Order
 
-1. Test deployed DWS end-to-end with ERW image upload, PDF creation, and form reset.
-2. Confirm Google Sheets column alignment for appended PDF/image URL fields.
-3. Add image upload for OHC and TJET Registry.
-4. Add `Validation_Lists` sheet and dynamic dropdown loading.
-5. Add backend validation.
+1. Push updated Apps Script and test deployed DWS create/read/update/delete end-to-end.
+2. Wire DWS HTML dropdowns to `Validation_Lists`.
+3. Add backend validation against `Validation_Lists`.
+4. Extend CRUD behavior to OHC, TJET Registry, and TJET Receipt & Expenditure.
+5. Add image upload for OHC and TJET Registry.
 6. Improve responsiveness.
 7. Extend local simulator mocks for dropdowns and image upload.
 8. Final deployment and end-to-end testing.
