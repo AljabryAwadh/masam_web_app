@@ -11,6 +11,15 @@
   const tjetItemMaster = [
     { code: 'TJET-DEMO-001', name: 'TJET Demo Item', category: 'Demo', unit: 'Units', minimumStock: 0, notes: 'Local mock item' }
   ];
+  const mockUserProfile = {
+    success: true,
+    email: 'local.user@example.com',
+    name: 'Local User',
+    role: 'Admin',
+    allowed: true,
+    bootstrapMode: true,
+    reason: 'Local simulator allows all actions.'
+  };
   const validationLists = {
     TEAM_NO: ['T34', 'T35', 'T36', 'T37', 'T38', 'T39', 'T40', 'T41', 'T42', 'T43', 'T44']
       .map((value, index) => ({ value, labelEn: value, labelAr: '', sortOrder: index + 1, notes: 'Local mock' })),
@@ -149,6 +158,11 @@
         return acc;
       }, {});
       respond(result);
+      return runner;
+    },
+    getCurrentUserProfile() {
+      console.log('Local mock getCurrentUserProfile');
+      respond(mockUserProfile);
       return runner;
     },
     processForm(data) {

@@ -53,6 +53,57 @@ const TJET_STOCK_LEDGER_HEADERS = [
   'Status'
 ];
 
+const USERS_ALLOWLIST_SHEET = 'Users_Allowlist';
+const ROLES_SHEET = 'Roles';
+const ROLE_PERMISSIONS_SHEET = 'Role_Permissions';
+const PERMISSION_AUDIT_LOG_SHEET = 'Permission_Audit_Log';
+
+const USERS_ALLOWLIST_HEADERS = [
+  'Email',
+  'Name',
+  'Role',
+  'Forms',
+  'Active',
+  'Notes',
+  'Created_At',
+  'Updated_At'
+];
+
+const ROLES_HEADERS = [
+  'Role',
+  'Description',
+  'Active'
+];
+
+const ROLE_PERMISSIONS_HEADERS = [
+  'Role',
+  'Form_Key',
+  'Can_View',
+  'Can_Submit',
+  'Can_Edit',
+  'Can_Delete',
+  'Can_Admin',
+  'Active'
+];
+
+const PERMISSION_AUDIT_LOG_HEADERS = [
+  'Timestamp',
+  'Email',
+  'Form_Key',
+  'Action',
+  'Allowed',
+  'Reason'
+];
+
+const FORM_KEYS = {
+  DWS: 'DWS',
+  OHC: 'OHC',
+  TJET_REGISTRY: 'TJET_Registry',
+  TJET_RECEIPT_EXPENDITURE: 'TJET_Receipt_and_Expenditure',
+  UNKNOWN_EO_REGISTRY: 'Unknown_EO_Registry',
+  ALL: 'ALL'
+};
+
 /**
  * Serves the HTML file to the browser dynamically based on URL parameters.
  * Handles the EOD Web Portal page list:
@@ -184,12 +235,221 @@ function ensureTjetInventorySheets() {
   };
 }
 
+function ensurePermissionSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = {
+    users: ensureSheetWithHeaders(ss, USERS_ALLOWLIST_SHEET, USERS_ALLOWLIST_HEADERS),
+    roles: ensureSheetWithHeaders(ss, ROLES_SHEET, ROLES_HEADERS),
+    permissions: ensureSheetWithHeaders(ss, ROLE_PERMISSIONS_SHEET, ROLE_PERMISSIONS_HEADERS),
+    audit: ensureSheetWithHeaders(ss, PERMISSION_AUDIT_LOG_SHEET, PERMISSION_AUDIT_LOG_HEADERS)
+  };
+
+  seedPermissionDefaults(sheets);
+  return sheets;
+}
+
+function seedPermissionDefaults(sheets) {
+  if (sheets.roles.getLastRow() <= 1) {
+    sheets.roles.getRange(2, 1, 4, ROLES_HEADERS.length).setValues([
+      ['Admin', 'Full access to all forms and administration tasks.', true],
+      ['Supervisor', 'Can view, submit, and edit operational forms.', true],
+      ['DataEntry', 'Can view and submit operational forms.', true],
+      ['Viewer', 'Can view form pages and reference data only.', true]
+    ]);
+  }
+
+  if (sheets.permissions.getLastRow() <= 1) {
+    const rows = [];
+    const formKeys = [
+      FORM_KEYS.ALL,
+      FORM_KEYS.DWS,
+      FORM_KEYS.OHC,
+      FORM_KEYS.TJET_REGISTRY,
+      FORM_KEYS.TJET_RECEIPT_EXPENDITURE,
+      FORM_KEYS.UNKNOWN_EO_REGISTRY
+    ];
+
+    formKeys.forEach(function(formKey) {
+      rows.push(['Admin', formKey, true, true, true, true, true, true]);
+      rows.push(['Supervisor', formKey, true, true, true, false, false, true]);
+      rows.push(['DataEntry', formKey, true, true, false, false, false, true]);
+      rows.push(['Viewer', formKey, true, false, false, false, false, true]);
+    });
+
+    sheets.permissions.getRange(2, 1, rows.length, ROLE_PERMISSIONS_HEADERS.length).setValues(rows);
+  }
+}
+
 function getSubmittedBy() {
   try {
     return Session.getActiveUser().getEmail() || '';
   } catch (err) {
     return '';
   }
+}
+
+function getCurrentUserEmail() {
+  try {
+    return Session.getActiveUser().getEmail() || '';
+  } catch (err) {
+    return '';
+  }
+}
+
+function normalizePermissionValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function valueIsActive(value) {
+  return value === true || normalizePermissionValue(value) === 'true' || normalizePermissionValue(value) === 'yes' || normalizePermissionValue(value) === 'active';
+}
+
+function splitPermissionList(value) {
+  return String(value || '')
+    .split(',')
+    .map(function(item) { return item.trim(); })
+    .filter(function(item) { return item; });
+}
+
+function permissionColumnForAction(action) {
+  const normalized = normalizePermissionValue(action);
+  const map = {
+    view: 2,
+    submit: 3,
+    edit: 4,
+    delete: 5,
+    admin: 6
+  };
+  return map[normalized] === undefined ? null : map[normalized];
+}
+
+function getUsersAllowlistRows(sheet) {
+  const values = sheet.getDataRange().getValues();
+  const rows = [];
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const email = normalizePermissionValue(row[0]);
+    if (!email) continue;
+    rows.push({
+      email: email,
+      name: String(row[1] || '').trim(),
+      role: String(row[2] || '').trim(),
+      forms: splitPermissionList(row[3] || FORM_KEYS.ALL),
+      active: valueIsActive(row[4]),
+      rowNumber: i + 1
+    });
+  }
+  return rows;
+}
+
+function getRolePermissions(sheet, role, formKey, action) {
+  const permissionColumn = permissionColumnForAction(action);
+  if (permissionColumn === null) return { allowed: false, reason: 'Unknown permission action: ' + action };
+
+  const values = sheet.getDataRange().getValues();
+  const normalizedRole = normalizePermissionValue(role);
+  const normalizedFormKey = normalizePermissionValue(formKey);
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (!valueIsActive(row[7])) continue;
+    const rowRole = normalizePermissionValue(row[0]);
+    const rowForm = normalizePermissionValue(row[1]);
+    if (rowRole !== normalizedRole) continue;
+    if (rowForm !== normalizedFormKey && rowForm !== normalizePermissionValue(FORM_KEYS.ALL)) continue;
+    return {
+      allowed: valueIsActive(row[permissionColumn]),
+      reason: valueIsActive(row[permissionColumn]) ? 'Allowed by role permission.' : 'Role does not permit this action.'
+    };
+  }
+
+  return { allowed: false, reason: 'No matching role permission found.' };
+}
+
+function userCanAccessForm(userRow, formKey) {
+  if (normalizePermissionValue(formKey) === normalizePermissionValue(FORM_KEYS.ALL)) return true;
+  if (!userRow.forms.length) return true;
+  const normalizedFormKey = normalizePermissionValue(formKey);
+  return userRow.forms.some(function(form) {
+    const normalizedForm = normalizePermissionValue(form);
+    return normalizedForm === normalizePermissionValue(FORM_KEYS.ALL) || normalizedForm === normalizedFormKey;
+  });
+}
+
+function logPermissionCheck(sheets, email, formKey, action, allowed, reason) {
+  try {
+    sheets.audit.appendRow([new Date(), email || '', formKey || '', action || '', allowed ? 'Yes' : 'No', reason || '']);
+  } catch (err) {
+    Logger.log('Permission audit log failed: ' + err.toString());
+  }
+}
+
+function checkUserPermission(formKey, action) {
+  const sheets = ensurePermissionSheets();
+  const email = normalizePermissionValue(getCurrentUserEmail());
+  const users = getUsersAllowlistRows(sheets.users).filter(function(user) { return user.active; });
+
+  if (!users.length) {
+    return {
+      success: true,
+      allowed: true,
+      bootstrapMode: true,
+      email: email,
+      role: 'Bootstrap',
+      reason: 'Users_Allowlist has no active users yet; permissions are in bootstrap mode.'
+    };
+  }
+
+  if (!email) {
+    const noEmailReason = 'No signed-in Google email was available for this request.';
+    logPermissionCheck(sheets, '', formKey, action, false, noEmailReason);
+    return { success: true, allowed: false, email: '', role: '', reason: noEmailReason };
+  }
+
+  const user = users.filter(function(row) { return row.email === email; })[0];
+  if (!user) {
+    const notListedReason = 'Email is not listed in Users_Allowlist.';
+    logPermissionCheck(sheets, email, formKey, action, false, notListedReason);
+    return { success: true, allowed: false, email: email, role: '', reason: notListedReason };
+  }
+
+  if (!userCanAccessForm(user, formKey)) {
+    const formReason = 'User is not assigned to this form.';
+    logPermissionCheck(sheets, email, formKey, action, false, formReason);
+    return { success: true, allowed: false, email: email, role: user.role, reason: formReason };
+  }
+
+  const rolePermission = getRolePermissions(sheets.permissions, user.role, formKey, action);
+  logPermissionCheck(sheets, email, formKey, action, rolePermission.allowed, rolePermission.reason);
+  return {
+    success: true,
+    allowed: rolePermission.allowed,
+    email: email,
+    name: user.name,
+    role: user.role,
+    reason: rolePermission.reason
+  };
+}
+
+function requirePermission(formKey, action) {
+  const permission = checkUserPermission(formKey, action);
+  if (!permission.allowed) {
+    throw new Error('Access denied: ' + permission.reason);
+  }
+  return permission;
+}
+
+function getCurrentUserProfile() {
+  const permission = checkUserPermission(FORM_KEYS.ALL, 'view');
+  return {
+    success: true,
+    email: permission.email || '',
+    name: permission.name || '',
+    role: permission.role || '',
+    allowed: permission.allowed,
+    bootstrapMode: !!permission.bootstrapMode,
+    reason: permission.reason || ''
+  };
 }
 
 function getDriveFolderUrl(folderId) {
@@ -201,6 +461,7 @@ function getDriveFolderUrl(folderId) {
 }
 
 function getValidationLists(requestedKeys) {
+  requirePermission(FORM_KEYS.ALL, 'view');
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Validation_Lists');
   if (!sheet) return {};
@@ -373,6 +634,7 @@ function dwsErwRowFromForm(row, formData, docRef, timestamp, pdfUrl, imageFolder
 
 function getDwsSubmission(docRef) {
   try {
+    requirePermission(FORM_KEYS.DWS, 'view');
     const ref = String(docRef || '').trim();
     if (!ref) return { success: false, error: 'Please enter a document reference number.' };
 
@@ -444,6 +706,12 @@ function getDwsSubmission(docRef) {
  * Processes the form data, saves to 3 sheets, and generates a PDF.
  */
 function processForm(formData) {
+  try {
+    requirePermission(FORM_KEYS.DWS, 'submit');
+  } catch (err) {
+    return { success: false, error: err.toString() };
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const timestamp = new Date();
   const docRef = getNextDocRef('DWS', formData.teamNo);
@@ -569,6 +837,12 @@ function processForm(formData) {
 }
 
 function updateDwsSubmission(formData) {
+  try {
+    requirePermission(FORM_KEYS.DWS, 'edit');
+  } catch (err) {
+    return { success: false, error: err.toString() };
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const timestamp = new Date();
   const docRef = String(formData.docRef || '').trim();
@@ -629,6 +903,7 @@ function updateDwsSubmission(formData) {
 
 function deleteDwsSubmission(docRef) {
   try {
+    requirePermission(FORM_KEYS.DWS, 'delete');
     const ref = String(docRef || '').trim();
     if (!ref) return { success: false, error: 'Document reference is required.' };
 
@@ -828,6 +1103,12 @@ function createPDF(data, docRef, erwRows) {
  * Expects formData.items as a JSON string of objects: {eoType, description, quantity, remarks}
  */
 function processOHC(formData) {
+  try {
+    requirePermission(FORM_KEYS.OHC, 'submit');
+  } catch (err) {
+    return { success: false, error: err.toString() };
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const timestamp = new Date();
   const docRef = getNextDocRef('OHC', formData.teamNo);
@@ -924,6 +1205,12 @@ function createOHCPDF(data, docRef, items) {
  * Expects formData.items as a JSON string of objects: {siteForTeam,gpsN,gpsE,eoType,eoDesc,tjetType,tjetQty,remarks}
  */
 function processTJET(formData) {
+  try {
+    requirePermission(FORM_KEYS.TJET_REGISTRY, 'submit');
+  } catch (err) {
+    return { success: false, error: err.toString() };
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const timestamp = new Date();
   const docRef = getNextDocRef('TJET_REG', formData.teamNo);
@@ -1025,6 +1312,12 @@ function createTJETRegistryPDF(data, docRef, items) {
  * Dynamic field detection maps both uppercase script fields and camelCase client parameters perfectly.
  */
 function processTJETReceiptAndExpenditure(e) {
+  try {
+    requirePermission(FORM_KEYS.TJET_RECEIPT_EXPENDITURE, 'submit');
+  } catch (err) {
+    return { success: false, error: err.toString() };
+  }
+
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheetName = 'TJET_Receipt_and_Expenditure_Form_Response';
   var sheet = ss.getSheetByName(sheetName);
@@ -1112,6 +1405,7 @@ function dateIsCurrentMonth(value, now) {
 
 function getTjetItemMaster() {
   try {
+    requirePermission(FORM_KEYS.TJET_RECEIPT_EXPENDITURE, 'view');
     const sheets = ensureTjetInventorySheets();
     const values = sheets.itemMaster.getDataRange().getValues();
     const items = [];
@@ -1300,6 +1594,7 @@ function syncTjetLegacyReceiptRowsToLedger() {
 
 function getTjetReceiptStats() {
   try {
+    requirePermission(FORM_KEYS.TJET_RECEIPT_EXPENDITURE, 'view');
     syncTjetLegacyReceiptRowsToLedger();
     const sheets = ensureTjetInventorySheets();
     const values = sheets.ledger.getDataRange().getValues();
