@@ -11,7 +11,8 @@ const pageMap = {
   dws: 'DWS',
   ohc: 'OHC',
   tjet_registry: 'TJET_Registry',
-  tjet_receipt_and_expenditure: 'TJET_Receipt_and_Expenditure'
+  tjet_receipt_and_expenditure: 'TJET_Receipt_and_Expenditure',
+  tjet_stock_ledger: 'TJET_Stock_Ledger'
 };
 
 const mimeTypes = {

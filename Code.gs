@@ -100,6 +100,7 @@ const FORM_KEYS = {
   OHC: 'OHC',
   TJET_REGISTRY: 'TJET_Registry',
   TJET_RECEIPT_EXPENDITURE: 'TJET_Receipt_and_Expenditure',
+  TJET_STOCK_LEDGER: 'TJET_Stock_Ledger',
   UNKNOWN_EO_REGISTRY: 'Unknown_EO_Registry',
   ALL: 'ALL'
 };
@@ -112,6 +113,7 @@ const FORM_KEYS = {
  * - OHC.html
  * - TJET_Registry.html
  * - TJET_Receipt_and_Expenditure.html
+ * - TJET_Stock_Ledger.html
  */
 function doGet(e) {
   // 1. Get the requested page from the URL parameter (default to 'Index')
@@ -124,7 +126,8 @@ function doGet(e) {
     'dws': 'DWS',
     'ohc': 'OHC',
     'tjet_registry': 'TJET_Registry',
-    'tjet_receipt_and_expenditure': 'TJET_Receipt_and_Expenditure'
+    'tjet_receipt_and_expenditure': 'TJET_Receipt_and_Expenditure',
+    'tjet_stock_ledger': 'TJET_Stock_Ledger'
   };
   
   // Lookup target filename or fallback to default
@@ -249,34 +252,50 @@ function ensurePermissionSheets() {
 }
 
 function seedPermissionDefaults(sheets) {
+  const defaultRoles = [
+    ['Admin', 'Full access to all forms and administration tasks.', true],
+    ['Supervisor', 'Can view, submit, and edit operational forms.', true],
+    ['DataEntry', 'Can view and submit operational forms.', true],
+    ['Viewer', 'Can view form pages and reference data only.', true]
+  ];
+
   if (sheets.roles.getLastRow() <= 1) {
-    sheets.roles.getRange(2, 1, 4, ROLES_HEADERS.length).setValues([
-      ['Admin', 'Full access to all forms and administration tasks.', true],
-      ['Supervisor', 'Can view, submit, and edit operational forms.', true],
-      ['DataEntry', 'Can view and submit operational forms.', true],
-      ['Viewer', 'Can view form pages and reference data only.', true]
-    ]);
+    sheets.roles.getRange(2, 1, defaultRoles.length, ROLES_HEADERS.length).setValues(defaultRoles);
   }
 
-  if (sheets.permissions.getLastRow() <= 1) {
-    const rows = [];
-    const formKeys = [
-      FORM_KEYS.ALL,
-      FORM_KEYS.DWS,
-      FORM_KEYS.OHC,
-      FORM_KEYS.TJET_REGISTRY,
-      FORM_KEYS.TJET_RECEIPT_EXPENDITURE,
-      FORM_KEYS.UNKNOWN_EO_REGISTRY
-    ];
+  const existingPermissionKeys = {};
+  const existingValues = sheets.permissions.getDataRange().getValues();
+  for (let i = 1; i < existingValues.length; i++) {
+    const role = normalizePermissionValue(existingValues[i][0]);
+    const formKey = normalizePermissionValue(existingValues[i][1]);
+    if (role && formKey) existingPermissionKeys[role + '|' + formKey] = true;
+  }
 
-    formKeys.forEach(function(formKey) {
-      rows.push(['Admin', formKey, true, true, true, true, true, true]);
-      rows.push(['Supervisor', formKey, true, true, true, false, false, true]);
-      rows.push(['DataEntry', formKey, true, true, false, false, false, true]);
-      rows.push(['Viewer', formKey, true, false, false, false, false, true]);
-    });
+  const rows = [];
+  const formKeys = [
+    FORM_KEYS.ALL,
+    FORM_KEYS.DWS,
+    FORM_KEYS.OHC,
+    FORM_KEYS.TJET_REGISTRY,
+    FORM_KEYS.TJET_RECEIPT_EXPENDITURE,
+    FORM_KEYS.TJET_STOCK_LEDGER,
+    FORM_KEYS.UNKNOWN_EO_REGISTRY
+  ];
 
-    sheets.permissions.getRange(2, 1, rows.length, ROLE_PERMISSIONS_HEADERS.length).setValues(rows);
+  function addDefaultPermission(row) {
+    const key = normalizePermissionValue(row[0]) + '|' + normalizePermissionValue(row[1]);
+    if (!existingPermissionKeys[key]) rows.push(row);
+  }
+
+  formKeys.forEach(function(formKey) {
+    addDefaultPermission(['Admin', formKey, true, true, true, true, true, true]);
+    addDefaultPermission(['Supervisor', formKey, true, true, true, false, false, true]);
+    addDefaultPermission(['DataEntry', formKey, true, true, false, false, false, true]);
+    addDefaultPermission(['Viewer', formKey, true, false, false, false, false, true]);
+  });
+
+  if (rows.length) {
+    sheets.permissions.getRange(sheets.permissions.getLastRow() + 1, 1, rows.length, ROLE_PERMISSIONS_HEADERS.length).setValues(rows);
   }
 }
 
@@ -1486,6 +1505,20 @@ function makeTjetStockTransactionId(docRef, movementType, index) {
   ].join('_');
 }
 
+function getAllowedTjetMovementTypes() {
+  return [
+    'PURCHASED',
+    'RECEIVED',
+    'ISSUED_TO_TEAM',
+    'EXPENDED',
+    'RETURNED',
+    'ADJUSTMENT_POSITIVE',
+    'ADJUSTMENT_NEGATIVE',
+    'DAMAGED',
+    'LOST'
+  ];
+}
+
 function appendTjetStockLedgerMovements(named, docRef, timestamp) {
   const sheets = ensureTjetInventorySheets();
   const submittedBy = getSubmittedBy();
@@ -1543,6 +1576,57 @@ function appendTjetStockLedgerMovements(named, docRef, timestamp) {
   }
 
   return rows.length;
+}
+
+function processTjetStockLedgerMovement(formData) {
+  try {
+    requirePermission(FORM_KEYS.TJET_STOCK_LEDGER, 'admin');
+
+    const timestamp = new Date();
+    const movementType = String(formData.movementType || '').trim().toUpperCase();
+    const allowedTypes = getAllowedTjetMovementTypes();
+    if (allowedTypes.indexOf(movementType) === -1) {
+      return { success: false, error: 'Invalid stock movement type: ' + movementType };
+    }
+
+    const quantity = parseQuantity(formData.quantity);
+    if (!quantity || quantity <= 0) {
+      return { success: false, error: 'Quantity must be greater than zero.' };
+    }
+
+    const date = formData.date || toInputDate(timestamp);
+    const item = lookupTjetItem(formData.itemCode, formData.itemName);
+    const referenceDoc = String(formData.referenceDoc || '').trim() || 'MANUAL';
+    const transactionId = [
+      'TJET-STOCK',
+      referenceDoc.replace(/[^A-Za-z0-9-]/g, '_'),
+      movementType,
+      Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'yyyyMMddHHmmss')
+    ].join('_');
+
+    const sheets = ensureTjetInventorySheets();
+    sheets.ledger.appendRow([
+      transactionId,
+      timestamp,
+      date,
+      item.code,
+      item.name,
+      item.category,
+      movementType,
+      quantity,
+      formData.teamNo || '',
+      formData.recipient || '',
+      referenceDoc,
+      formData.reason || '',
+      getSubmittedBy(),
+      timestamp,
+      'Active'
+    ]);
+
+    return { success: true, transactionId: transactionId, movementType: movementType, quantity: quantity };
+  } catch (err) {
+    return { success: false, error: err.toString() };
+  }
 }
 
 function syncTjetLegacyReceiptRowsToLedger() {

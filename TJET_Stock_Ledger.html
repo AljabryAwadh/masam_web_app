@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MASAM Web Portal - TJET Stock Ledger</title>
+    <?!= include('SharedStyles'); ?>
+</head>
+<body>
+
+<?!= include('SharedHeader'); ?>
+
+<div class="container">
+    <div class="page-header shadow-sm">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <span class="badge bg-info px-3 py-2 mb-2 text-uppercase fw-bold">Stock Control / مراقبة المخزون</span>
+                <h1 class="fw-bold mb-1">TJET Stock Ledger / سجل مخزون TJET</h1>
+                <p class="text-white-50 mb-0">Record manual stock movements and review live ledger balances / تسجيل حركات المخزون اليدوية ومراجعة أرصدة السجل.</p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <button class="btn btn-primary font-semibold shadow-sm" type="button" onclick="focusLedgerForm()">+ New Movement / حركة جديدة</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card p-4 text-center">
+                <h6 class="text-muted text-uppercase font-bold small mb-2">Inventory Logged / المخزون المسجل</h6>
+                <h2 class="fw-bold text-slate-800"><span id="inventoryLogged">--</span> Units / وحدة</h2>
+                <div class="text-success small mt-1">Purchased + received + returned / مشتريات ومستلم ومرتجع</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-4 text-center">
+                <h6 class="text-muted text-uppercase font-bold small mb-2">Expended This Month / المصروف هذا الشهر</h6>
+                <h2 class="fw-bold text-slate-800"><span id="expendedThisMonth">--</span> Units / وحدة</h2>
+                <div class="text-danger small mt-1">Current calendar month / الشهر التقويمي الحالي</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-4 text-center">
+                <h6 class="text-muted text-uppercase font-bold small mb-2">Remaining Store Balance / رصيد المخزن المتبقي</h6>
+                <h2 class="fw-bold text-slate-800"><span id="storeBalance">--</span> Units / وحدة</h2>
+                <div class="text-primary small mt-1">Ledger in minus ledger out / الداخل ناقص الخارج</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-3 mt-4 bg-white rounded shadow-sm" id="ledgerEntrySection">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+                <h5 class="fw-bold mb-1">Manual Stock Movement / حركة مخزون يدوية</h5>
+                <div class="text-muted small">Admin permission is required once the allowlist is active / يتطلب صلاحية المدير بعد تفعيل قائمة السماح.</div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="loadTjetReceiptStats()">Refresh Totals / تحديث الإجماليات</button>
+        </div>
+
+        <form id="tjetStockLedgerForm">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Date / التاريخ</label>
+                    <input name="date" type="date" class="form-control" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Movement Type / نوع الحركة</label>
+                    <select name="movementType" class="form-select" required>
+                        <option value="">Select movement / اختر الحركة...</option>
+                        <option value="PURCHASED">Purchased / مشتريات</option>
+                        <option value="RECEIVED">Received / مستلم</option>
+                        <option value="ISSUED_TO_TEAM">Issued To Team / صادر للفريق</option>
+                        <option value="EXPENDED">Expended / مستخدم</option>
+                        <option value="RETURNED">Returned / مرتجع</option>
+                        <option value="ADJUSTMENT_POSITIVE">Positive Adjustment / تسوية إيجابية</option>
+                        <option value="ADJUSTMENT_NEGATIVE">Negative Adjustment / تسوية سلبية</option>
+                        <option value="DAMAGED">Damaged / تالف</option>
+                        <option value="LOST">Lost / مفقود</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Item Code / رمز العنصر</label>
+                    <select name="itemCode" class="form-select tjet-item-select" required>
+                        <option value="">Select item code / اختر رمز العنصر...</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Item Name / اسم العنصر</label>
+                    <input name="itemName" type="text" class="form-control" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Quantity / الكمية</label>
+                    <input name="quantity" type="number" class="form-control" min="0.01" step="0.01" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Team # / رقم الفريق</label>
+                    <input name="teamNo" type="text" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Recipient / المستلم</label>
+                    <input name="recipient" type="text" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Reference Doc / مرجع المستند</label>
+                    <input name="referenceDoc" type="text" class="form-control" placeholder="MANUAL / يدوي">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Reason / السبب</label>
+                    <textarea name="reason" class="form-control" rows="3" required></textarea>
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button type="submit" class="btn btn-primary">Save Movement / حفظ الحركة</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="resetLedgerForm()">Reset / إعادة تعيين</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card p-3 mt-4 mb-4 bg-white rounded shadow-sm">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+          <h5 class="fw-bold mb-1">Store Movement Summary / ملخص حركة المخزن</h5>
+          <div id="stockStatsMeta" class="text-muted small">Loading stock movement totals / جار تحميل إجماليات حركة المخزن...</div>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle mb-0 stock-summary-table">
+          <thead class="table-light">
+            <tr>
+              <th>Item / عنصر</th>
+              <th class="text-end">Received / مستلم</th>
+              <th class="text-end">Issued / صادر</th>
+              <th class="text-end">Expended / مستخدم</th>
+              <th class="text-end">Returned / مرتجع</th>
+              <th class="text-end">Balance / الرصيد</th>
+            </tr>
+          </thead>
+          <tbody id="stockMovementRows">
+            <tr><td colspan="6" class="text-center text-muted">Loading / جار التحميل...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+</div>
+
+<script>
+  let tjetItems = [];
+
+  function todayInputValue() {
+    const now = new Date();
+    const offsetDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return offsetDate.toISOString().slice(0, 10);
+  }
+
+  function formatUnits(value) {
+    return Number(value || 0).toLocaleString();
+  }
+
+  function escapeText(value) {
+    return String(value || '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[char]));
+  }
+
+  function setDefaultDate() {
+    const input = document.querySelector('#tjetStockLedgerForm input[name="date"]');
+    if (input && !input.value) input.value = todayInputValue();
+  }
+
+  function focusLedgerForm() {
+    document.getElementById('ledgerEntrySection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const select = document.querySelector('#tjetStockLedgerForm select[name="movementType"]');
+    if (select) select.focus();
+  }
+
+  function resetLedgerForm() {
+    document.getElementById('tjetStockLedgerForm').reset();
+    setDefaultDate();
+  }
+
+  function loadTjetItemMaster() {
+    google.script.run
+      .withSuccessHandler(renderTjetItemOptions)
+      .withFailureHandler(() => renderTjetItemOptions({ success: false, items: [] }))
+      .getTjetItemMaster();
+  }
+
+  function renderTjetItemOptions(result) {
+    tjetItems = result && result.items ? result.items : [];
+    const select = document.querySelector('.tjet-item-select');
+    if (!select) return;
+    const selected = select.value;
+    select.innerHTML = '<option value="">Select item code / اختر رمز العنصر...</option>' + tjetItems.map(item =>
+      `<option value="${escapeText(item.code)}" data-name="${escapeText(item.name)}">${escapeText(item.code)} - ${escapeText(item.name)}</option>`
+    ).join('');
+    select.value = selected;
+  }
+
+  document.addEventListener('change', function(event) {
+    const select = event.target.closest('.tjet-item-select');
+    if (!select) return;
+    const selectedOption = select.options[select.selectedIndex];
+    const itemNameInput = document.querySelector('input[name="itemName"]');
+    if (itemNameInput && selectedOption && selectedOption.dataset.name) {
+      itemNameInput.value = selectedOption.dataset.name;
+    }
+  });
+
+  function renderTjetReceiptStats(stats) {
+    if (!stats || !stats.success) {
+      document.getElementById('stockStatsMeta').innerText = (stats && stats.error) || 'Unable to load stock totals / تعذر تحميل إجماليات المخزون.';
+      return;
+    }
+
+    document.getElementById('inventoryLogged').innerText = formatUnits(stats.totalReceived);
+    document.getElementById('expendedThisMonth').innerText = formatUnits(stats.expendedThisMonth);
+    document.getElementById('storeBalance').innerText = formatUnits(stats.balance);
+    document.getElementById('stockStatsMeta').innerText =
+      `${stats.formula}. Rows counted: ${stats.rowsCounted}. Total expended: ${formatUnits(stats.totalExpended)}. Returned: ${formatUnits(stats.totalReturned)}.`;
+
+    const rows = stats.items && stats.items.length ? stats.items : [];
+    document.getElementById('stockMovementRows').innerHTML = rows.length
+      ? rows.map(item => `
+          <tr>
+            <td>${escapeText(item.item)}</td>
+            <td class="text-end">${formatUnits(item.received)}</td>
+            <td class="text-end">${formatUnits(item.issued)}</td>
+            <td class="text-end">${formatUnits(item.expended)}</td>
+            <td class="text-end">${formatUnits(item.returned)}</td>
+            <td class="text-end fw-semibold">${formatUnits(item.balance)}</td>
+          </tr>
+        `).join('')
+      : '<tr><td colspan="6" class="text-center text-muted">No stock movements have been logged yet / لم يتم تسجيل أي حركات مخزون بعد.</td></tr>';
+  }
+
+  function loadTjetReceiptStats() {
+    google.script.run
+      .withSuccessHandler(renderTjetReceiptStats)
+      .withFailureHandler(err => renderTjetReceiptStats({ success: false, error: (err.message || err).toString() }))
+      .getTjetReceiptStats();
+  }
+
+  document.getElementById('tjetStockLedgerForm').onsubmit = function(e) {
+    e.preventDefault();
+    const payload = Object.fromEntries(new FormData(e.target).entries());
+
+    showLoader();
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoader();
+        if (res && res.success) {
+          showCustomModal('Saved / تم الحفظ', 'Stock movement saved / تم حفظ حركة المخزون. Transaction: ' + res.transactionId, 'success');
+          resetLedgerForm();
+          loadTjetReceiptStats();
+        } else {
+          showCustomModal('Save failed / فشل الحفظ', (res && res.error) || 'Unknown error', 'error');
+        }
+      })
+      .withFailureHandler(err => {
+        hideLoader();
+        showCustomModal('Error', (err.message || err).toString(), 'error');
+      })
+      .processTjetStockLedgerMovement(payload);
+  };
+
+  function initializeLedgerPage() {
+    setDefaultDate();
+    loadTjetItemMaster();
+    loadTjetReceiptStats();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeLedgerPage);
+  } else {
+    initializeLedgerPage();
+  }
+</script>
+
+<?!= include('SharedScripts'); ?>
+</body>
+</html>

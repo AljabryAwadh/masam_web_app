@@ -59,6 +59,8 @@
       document.getElementById('linkTjetReg')?.classList.add('active');
     } else if (pageKey === 'tjet_receipt_and_expenditure') {
       document.getElementById('linkTjetReceipts')?.classList.add('active');
+    } else if (pageKey === 'tjet_stock_ledger') {
+      document.getElementById('linkTjetStockLedger')?.classList.add('active');
     }
 
     // 2. Initialize nav links to deployed webapp URL dynamically
@@ -78,7 +80,8 @@
         linkDws: 'DWS',
         linkOhc: 'OHC',
         linkTjetReg: 'TJET_Registry',
-        linkTjetReceipts: 'TJET_Receipt_and_Expenditure'
+        linkTjetReceipts: 'TJET_Receipt_and_Expenditure',
+        linkTjetStockLedger: 'TJET_Stock_Ledger'
       };
 
       Object.keys(links).forEach(function(id) {

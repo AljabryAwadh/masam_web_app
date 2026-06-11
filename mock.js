@@ -11,6 +11,17 @@
   const tjetItemMaster = [
     { code: 'TJET-DEMO-001', name: 'TJET Demo Item', category: 'Demo', unit: 'Units', minimumStock: 0, notes: 'Local mock item' }
   ];
+  const tjetMovementTypes = [
+    'PURCHASED',
+    'RECEIVED',
+    'ISSUED_TO_TEAM',
+    'EXPENDED',
+    'RETURNED',
+    'ADJUSTMENT_POSITIVE',
+    'ADJUSTMENT_NEGATIVE',
+    'DAMAGED',
+    'LOST'
+  ];
   const mockUserProfile = {
     success: true,
     email: 'local.user@example.com',
@@ -74,11 +85,12 @@
     let totalReceived = 0;
     let totalExpended = 0;
     let totalReturned = 0;
+    let totalIssued = 0;
     let expendedThisMonth = 0;
 
     function item(name) {
       const key = String(name || '').trim() || 'Unspecified';
-      itemMap[key] = itemMap[key] || { item: key, received: 0, expended: 0, returned: 0, balance: 0 };
+      itemMap[key] = itemMap[key] || { item: key, received: 0, issued: 0, expended: 0, returned: 0, balance: 0 };
       return itemMap[key];
     }
 
@@ -86,18 +98,21 @@
       const receivedQty = toNumber(row.receivedQty);
       const expendedQty = toNumber(row.expendedQty);
       const returnedQty = toNumber(row.returnedQty);
+      const issuedQty = toNumber(row.issuedQty);
       totalReceived += receivedQty;
       totalExpended += expendedQty;
       totalReturned += returnedQty;
+      totalIssued += issuedQty;
       if (currentMonth(row.date)) expendedThisMonth += expendedQty;
       if (receivedQty) item(row.received).received += receivedQty;
       if (expendedQty) item(row.expended).expended += expendedQty;
       if (returnedQty) item(row.returned).returned += returnedQty;
+      if (issuedQty) item(row.issued).issued += issuedQty;
     });
 
     const items = Object.keys(itemMap).sort().map(key => {
       const row = itemMap[key];
-      row.balance = row.received - row.expended + row.returned;
+      row.balance = row.received - row.issued - row.expended + row.returned;
       return row;
     });
 
@@ -107,12 +122,12 @@
           totalExpended,
           totalReturned,
           totalPurchased: 0,
-          totalIssued: 0,
+          totalIssued,
           totalAdjustmentPositive: 0,
           totalAdjustmentNegative: 0,
           totalLostDamaged: 0,
           expendedThisMonth,
-          balance: totalReceived - totalExpended + totalReturned,
+          balance: totalReceived - totalIssued - totalExpended + totalReturned,
           rowsCounted: tjetReceiptRows.length,
           formula: 'Balance = Purchased + Received + Returned + Positive Adjustments - Expended - Issued - Negative Adjustments - Lost/Damaged',
           items
@@ -239,6 +254,45 @@
       const ref = makeRef('TJET-REC-EXP', data.teamNo, 3);
       tjetReceiptRows.push({ ...data, ref });
       respond({ success: true, ref, pdfUrl: localPdfUrl(ref) });
+      return runner;
+    },
+    processTjetStockLedgerMovement(data) {
+      console.log('Local mock processTjetStockLedgerMovement:', data);
+      const movementType = String(data.movementType || '').trim().toUpperCase();
+      const quantity = toNumber(data.quantity);
+      if (!tjetMovementTypes.includes(movementType)) {
+        respond({ success: false, error: 'Invalid stock movement type: ' + movementType });
+        return runner;
+      }
+      if (!quantity || quantity <= 0) {
+        respond({ success: false, error: 'Quantity must be greater than zero.' });
+        return runner;
+      }
+
+      const selectedItem = tjetItemMaster.find(item => item.code === data.itemCode) || {};
+      const itemName = data.itemName || selectedItem.name || data.itemCode || 'Unspecified';
+      const transactionId = `TJET-STOCK_LOCAL_${Date.now()}`;
+      const row = {
+        date: data.date || new Date().toISOString().slice(0, 10),
+        ref: transactionId
+      };
+
+      if (['PURCHASED', 'RECEIVED', 'ADJUSTMENT_POSITIVE'].includes(movementType)) {
+        row.received = itemName;
+        row.receivedQty = quantity;
+      } else if (movementType === 'RETURNED') {
+        row.returned = itemName;
+        row.returnedQty = quantity;
+      } else if (movementType === 'ISSUED_TO_TEAM') {
+        row.issued = itemName;
+        row.issuedQty = quantity;
+      } else {
+        row.expended = itemName;
+        row.expendedQty = quantity;
+      }
+
+      tjetReceiptRows.push(row);
+      respond({ success: true, transactionId, movementType, quantity });
       return runner;
     },
     getTjetItemMaster() {
