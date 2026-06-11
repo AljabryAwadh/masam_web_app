@@ -117,6 +117,41 @@ MASAM Web App Responses/
 - Store folder IDs in constants or Script Properties.
 - Save folder URLs into Google Sheets for traceability.
 
+## 5A. TJET Stock Ledger And Inventory Control
+
+- Create controlled inventory tabs:
+  - `TJET_Item_Master`
+  - `TJET_Stock_Ledger`
+- Use `TJET_Item_Master` as the official item catalog:
+  - `Item_Code`
+  - `Item_Name`
+  - `Category`
+  - `Unit`
+  - `Active`
+  - `Minimum_Stock`
+  - `Notes`
+- Use `TJET_Stock_Ledger` as the audit ledger for all stock movements:
+  - `PURCHASED`
+  - `RECEIVED`
+  - `ISSUED_TO_TEAM`
+  - `EXPENDED`
+  - `RETURNED`
+  - `ADJUSTMENT_POSITIVE`
+  - `ADJUSTMENT_NEGATIVE`
+  - `DAMAGED`
+  - `LOST`
+- Calculate stock cards from the ledger:
+  - Inventory logged = purchased + received
+  - Expended this month = current-month `EXPENDED`
+  - Store balance = purchased + received + returned + positive adjustments - expended - issued - negative adjustments - lost/damaged
+- 2026-06-10 progress:
+  - Added backend auto-creation/repair for `TJET_Item_Master` and `TJET_Stock_Ledger`.
+  - Created both tabs in the live `DWS_Form` spreadsheet.
+  - Added item-code dropdown loading from `TJET_Item_Master`.
+  - Updated TJET Receipt & Expenditure submissions to append stock ledger movements.
+  - Updated the cards and movement table to read from `TJET_Stock_Ledger`.
+  - Added one-time legacy receipt row backfill into the ledger for existing `TJET-REC-EXP` rows.
+
 ## 6. Image Uploads
 
 - Current state: DWS ERW Finds supports image upload.
@@ -342,10 +377,12 @@ git push
 ## 14. Priority Order
 
 1. Push updated Apps Script and test deployed DWS create/read/update/delete end-to-end.
-2. Wire DWS HTML dropdowns to `Validation_Lists`.
-3. Add backend validation against `Validation_Lists`.
-4. Extend CRUD behavior to OHC, TJET Registry, and TJET Receipt & Expenditure.
-5. Add image upload for OHC and TJET Registry.
-6. Improve responsiveness.
-7. Extend local simulator mocks for dropdowns and image upload.
-8. Final deployment and end-to-end testing.
+2. Replace starter `TJET_Item_Master` rows with official MASAM item codes and names.
+3. Deploy and test TJET stock ledger cards against the live spreadsheet.
+4. Wire DWS HTML dropdowns to `Validation_Lists`.
+5. Add backend validation against `Validation_Lists`.
+6. Extend CRUD behavior to OHC, TJET Registry, and TJET Receipt & Expenditure.
+7. Add image upload for OHC and TJET Registry.
+8. Improve responsiveness.
+9. Extend local simulator mocks for dropdowns and image upload.
+10. Final deployment and end-to-end testing.

@@ -7,6 +7,10 @@
 
   const counters = {};
   const dwsSubmissions = {};
+  const tjetReceiptRows = [];
+  const tjetItemMaster = [
+    { code: 'TJET-DEMO-001', name: 'TJET Demo Item', category: 'Demo', unit: 'Units', minimumStock: 0, notes: 'Local mock item' }
+  ];
   const validationLists = {
     TEAM_NO: ['T34', 'T35', 'T36', 'T37', 'T38', 'T39', 'T40', 'T41', 'T42', 'T43', 'T44']
       .map((value, index) => ({ value, labelEn: value, labelAr: '', sortOrder: index + 1, notes: 'Local mock' })),
@@ -43,6 +47,67 @@
 
   function localFolderUrl(ref) {
     return `${window.location.origin}/local-folder/${encodeURIComponent(ref)}`;
+  }
+
+  function toNumber(value) {
+    const number = Number(String(value || '').replace(/,/g, ''));
+    return Number.isFinite(number) ? number : 0;
+  }
+
+  function currentMonth(dateValue) {
+    const date = new Date(dateValue);
+    const now = new Date();
+    return Number.isFinite(date.getTime()) && date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  }
+
+  function buildTjetReceiptStats() {
+    const itemMap = {};
+    let totalReceived = 0;
+    let totalExpended = 0;
+    let totalReturned = 0;
+    let expendedThisMonth = 0;
+
+    function item(name) {
+      const key = String(name || '').trim() || 'Unspecified';
+      itemMap[key] = itemMap[key] || { item: key, received: 0, expended: 0, returned: 0, balance: 0 };
+      return itemMap[key];
+    }
+
+    tjetReceiptRows.forEach(row => {
+      const receivedQty = toNumber(row.receivedQty);
+      const expendedQty = toNumber(row.expendedQty);
+      const returnedQty = toNumber(row.returnedQty);
+      totalReceived += receivedQty;
+      totalExpended += expendedQty;
+      totalReturned += returnedQty;
+      if (currentMonth(row.date)) expendedThisMonth += expendedQty;
+      if (receivedQty) item(row.received).received += receivedQty;
+      if (expendedQty) item(row.expended).expended += expendedQty;
+      if (returnedQty) item(row.returned).returned += returnedQty;
+    });
+
+    const items = Object.keys(itemMap).sort().map(key => {
+      const row = itemMap[key];
+      row.balance = row.received - row.expended + row.returned;
+      return row;
+    });
+
+    return {
+          success: true,
+          totalReceived,
+          totalExpended,
+          totalReturned,
+          totalPurchased: 0,
+          totalIssued: 0,
+          totalAdjustmentPositive: 0,
+          totalAdjustmentNegative: 0,
+          totalLostDamaged: 0,
+          expendedThisMonth,
+          balance: totalReceived - totalExpended + totalReturned,
+          rowsCounted: tjetReceiptRows.length,
+          formula: 'Balance = Purchased + Received + Returned + Positive Adjustments - Expended - Issued - Negative Adjustments - Lost/Damaged',
+          items
+    };
   }
 
   function respond(result) {
@@ -158,7 +223,18 @@
     processTJETReceiptAndExpenditure(data) {
       console.log('Local mock processTJETReceiptAndExpenditure:', data);
       const ref = makeRef('TJET-REC-EXP', data.teamNo, 3);
+      tjetReceiptRows.push({ ...data, ref });
       respond({ success: true, ref, pdfUrl: localPdfUrl(ref) });
+      return runner;
+    },
+    getTjetItemMaster() {
+      console.log('Local mock getTjetItemMaster');
+      respond({ success: true, items: tjetItemMaster });
+      return runner;
+    },
+    getTjetReceiptStats() {
+      console.log('Local mock getTjetReceiptStats');
+      respond(buildTjetReceiptStats());
       return runner;
     },
     simulateFailure(message) {

@@ -14,12 +14,12 @@
     <div class="page-header shadow-sm">
         <div class="row align-items-center">
             <div class="col-md-8">
-                <span class="badge bg-info px-3 py-2 mb-2 text-uppercase fw-bold">Logistics & Ledger</span>
+                <span class="badge bg-info px-3 py-2 mb-2 text-uppercase fw-bold">Logistics & Ledger / اللوجستيات والسجل</span>
                 <h1 class="fw-bold mb-1">TJET Receipts & Expenditure / الإيرادات والمصروفات</h1>
-                <p class="text-white-50 mb-0">Record, balance, and account for ordnance resources, equipment, and expenditures.</p>
+                <p class="text-white-50 mb-0">Record, balance, and account for ordnance resources, equipment, and expenditures / تسجيل وموازنة ومحاسبة موارد ومعدات ومصروفات الذخائر.</p>
             </div>
             <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                <button class="btn btn-info text-dark font-semibold shadow-sm">+ Log Receipt/Expense</button>
+                <button class="btn btn-primary font-semibold shadow-sm" type="button" onclick="focusReceiptForm()">+ Log Receipt/Expense / تسجيل استلام أو صرف</button>
             </div>
         </div>
     </div>
@@ -28,61 +28,193 @@
     <div class="row g-4">
         <div class="col-md-4">
             <div class="card p-4 text-center">
-                <h6 class="text-muted text-uppercase font-bold small mb-2">Inventory Logged</h6>
-                <h2 class="fw-bold text-slate-800">1,480 Units</h2>
-                <div class="text-success small mt-1">Verified on site</div>
+                <h6 class="text-muted text-uppercase font-bold small mb-2">Inventory Logged / المخزون المسجل</h6>
+                <h2 class="fw-bold text-slate-800"><span id="inventoryLogged">--</span> Units / وحدة</h2>
+                <div class="text-success small mt-1">Purchased + received in ledger / مشتريات ومستلم في السجل</div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="card p-4 text-center">
-                <h6 class="text-muted text-uppercase font-bold small mb-2">Expended This Month</h6>
-                <h2 class="fw-bold text-slate-800">182 Units</h2>
-                <div class="text-danger small mt-1">Recorded in Ops</div>
+                <h6 class="text-muted text-uppercase font-bold small mb-2">Expended This Month / المصروف هذا الشهر</h6>
+                <h2 class="fw-bold text-slate-800"><span id="expendedThisMonth">--</span> Units / وحدة</h2>
+                <div class="text-danger small mt-1">Current calendar month / الشهر التقويمي الحالي</div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="card p-4 text-center">
-                <h6 class="text-muted text-uppercase font-bold small mb-2">Remaining Store Balance</h6>
-                <h2 class="fw-bold text-slate-800">1,298 Units</h2>
-                <div class="text-primary small mt-1">Ready for deployment</div>
+                <h6 class="text-muted text-uppercase font-bold small mb-2">Remaining Store Balance / رصيد المخزن المتبقي</h6>
+                <h2 class="fw-bold text-slate-800"><span id="storeBalance">--</span> Units / وحدة</h2>
+                <div class="text-primary small mt-1">Ledger in minus ledger out / الداخل ناقص الخارج في السجل</div>
             </div>
         </div>
     </div>
 
+    <div class="card p-3 mt-4 bg-white rounded shadow-sm">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+          <h5 class="fw-bold mb-1">Store Movement Summary / ملخص حركة المخزن</h5>
+          <div id="stockStatsMeta" class="text-muted small">Loading stock movement totals / جار تحميل إجماليات حركة المخزن...</div>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-primary" onclick="loadTjetReceiptStats()">Refresh Totals / تحديث الإجماليات</button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle mb-0 stock-summary-table">
+          <thead class="table-light">
+            <tr>
+              <th>Item / عنصر</th>
+              <th class="text-end">Received / مستلم</th>
+              <th class="text-end">Issued / صادر</th>
+              <th class="text-end">Expended / مستخدم</th>
+              <th class="text-end">Returned / مرتجع</th>
+              <th class="text-end">Balance / الرصيد</th>
+            </tr>
+          </thead>
+          <tbody id="stockMovementRows">
+            <tr><td colspan="6" class="text-center text-muted">Loading / جار التحميل...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Inline TJET Receipt & Expenditure Form -->
-    <div class="mt-4">
+    <div class="mt-4" id="receiptEntrySection">
       <div class="card p-3 mb-4 bg-white rounded shadow-sm">
         <form id="tjetReceiptForm">
           <div class="row g-3 mb-2">
             <div class="col-md-3"><label class="form-label">DATE / تاريخ</label><input name="date" type="date" class="form-control" required></div>
             <div class="col-md-3"><label class="form-label">TEAM # / رقم الفريق</label><input name="teamNo" type="text" class="form-control" required></div>
-            <div class="col-md-3"><label class="form-label">RECEIVED / العناصر المستلم‬</label><input name="received" type="text" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">QTY / الكمية (received)</label><input name="receivedQty" type="number" class="form-control" min="0"></div>
+            <div class="col-md-3"><label class="form-label">Received Item Code / رمز العنصر المستلم</label><select name="receivedItemCode" class="form-select tjet-item-select" data-target="received"><option value="">Select item code / اختر رمز العنصر...</option></select></div>
+            <div class="col-md-3"><label class="form-label">Received Item / العنصر المستلم</label><input name="received" type="text" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Received Quantity / الكمية المستلمة</label><input name="receivedQty" type="number" class="form-control" min="0"></div>
+            <div class="col-md-3"><label class="form-label">Received Movement / حركة الاستلام</label><select name="receivedMovementType" class="form-select"><option value="RECEIVED">Received / مستلم</option><option value="PURCHASED">Purchased / مشتريات</option><option value="ADJUSTMENT_POSITIVE">Positive Adjustment / تسوية إيجابية</option></select></div>
           </div>
 
           <div class="row g-3 mb-2">
             <div class="col-md-3"><label class="form-label">RECIPIENT NAME / اسم المستلم</label><input name="recipientName" type="text" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">EXPENDED / مستخدم</label><input name="expended" type="text" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">QTY / الكمية (expended)</label><input name="expendedQty" type="number" class="form-control" min="0"></div>
-            <div class="col-md-3"><label class="form-label">RETURNED / تم الإرجاع</label><input name="returned" type="text" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Expended Item Code / رمز العنصر المستخدم</label><select name="expendedItemCode" class="form-select tjet-item-select" data-target="expended"><option value="">Select item code / اختر رمز العنصر...</option></select></div>
+            <div class="col-md-3"><label class="form-label">Expended Item / العنصر المستخدم</label><input name="expended" type="text" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Expended Quantity / الكمية المستخدمة</label><input name="expendedQty" type="number" class="form-control" min="0"></div>
           </div>
 
           <div class="row g-3 mb-2">
-            <div class="col-md-3"><label class="form-label">QTY / الكمية (returned)</label><input name="returnedQty" type="number" class="form-control" min="0"></div>
-            <div class="col-md-6"><label class="form-label">TYPE OF TARGETS DESTROYED / أنواع األهداف التي تم تدميرها</label><input name="typesDestroyed" type="text" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">NUMBER OF TARGETS DESTROYED</label><input name="numberDestroyed" type="number" class="form-control" min="0"></div>
-            <div class="col-md-3"><label class="form-label">MISFIRED IGNITERS / فشل في عمل المشعِالت</label><input name="misfiredIgniters" type="number" class="form-control" min="0"></div>
+            <div class="col-md-3"><label class="form-label">Returned Item Code / رمز العنصر المرتجع</label><select name="returnedItemCode" class="form-select tjet-item-select" data-target="returned"><option value="">Select item code / اختر رمز العنصر...</option></select></div>
+            <div class="col-md-3"><label class="form-label">Returned Item / العنصر المرتجع</label><input name="returned" type="text" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Returned Quantity / الكمية المرتجعة</label><input name="returnedQty" type="number" class="form-control" min="0"></div>
+            <div class="col-md-6"><label class="form-label">Type Of Targets Destroyed / أنواع الأهداف التي تم تدميرها</label><input name="typesDestroyed" type="text" class="form-control"></div>
+            <div class="col-md-3"><label class="form-label">Number Of Targets Destroyed / عدد الأهداف التي تم تدميرها</label><input name="numberDestroyed" type="number" class="form-control" min="0"></div>
+            <div class="col-md-3"><label class="form-label">Misfired Igniters / فشل في عمل المشعلات</label><input name="misfiredIgniters" type="number" class="form-control" min="0"></div>
           </div>
 
           <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary">Submit</button>
-            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('tjetReceiptForm').reset()">Reset</button>
+            <button type="submit" class="btn btn-primary">Submit / إرسال</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('tjetReceiptForm').reset()">Reset / إعادة تعيين</button>
           </div>
         </form>
       </div>
     </div>
 
     <script>
+    function formatUnits(value) {
+      return Number(value || 0).toLocaleString();
+    }
+
+    function escapeText(value) {
+      return String(value || '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[char]));
+    }
+
+    function loadTjetItemMaster() {
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(renderTjetItemOptions)
+          .withFailureHandler(() => renderTjetItemOptions({ success: false, items: [] }))
+          .getTjetItemMaster();
+      } else {
+        renderTjetItemOptions({ success: true, items: [] });
+      }
+    }
+
+    function renderTjetItemOptions(result) {
+      const items = result && result.items ? result.items : [];
+      document.querySelectorAll('.tjet-item-select').forEach(select => {
+        const selected = select.value;
+        select.innerHTML = '<option value="">Select item code / اختر رمز العنصر...</option>' + items.map(item =>
+          `<option value="${escapeText(item.code)}" data-name="${escapeText(item.name)}">${escapeText(item.code)} - ${escapeText(item.name)}</option>`
+        ).join('');
+        select.value = selected;
+      });
+    }
+
+    document.addEventListener('change', function(event) {
+      const select = event.target.closest('.tjet-item-select');
+      if (!select) return;
+      const targetName = select.dataset.target;
+      const selectedOption = select.options[select.selectedIndex];
+      const targetInput = document.querySelector(`input[name="${targetName}"]`);
+      if (targetInput && selectedOption && selectedOption.dataset.name) {
+        targetInput.value = selectedOption.dataset.name;
+      }
+    });
+
+    function focusReceiptForm() {
+      document.getElementById('receiptEntrySection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const firstInput = document.querySelector('#tjetReceiptForm input[name="date"]');
+      if (firstInput) firstInput.focus();
+    }
+
+    function renderTjetReceiptStats(stats) {
+      if (!stats || !stats.success) {
+        document.getElementById('stockStatsMeta').innerText = (stats && stats.error) || 'Unable to load stock totals / تعذر تحميل إجماليات المخزون.';
+        return;
+      }
+
+      document.getElementById('inventoryLogged').innerText = formatUnits(stats.totalReceived);
+      document.getElementById('expendedThisMonth').innerText = formatUnits(stats.expendedThisMonth);
+      document.getElementById('storeBalance').innerText = formatUnits(stats.balance);
+      document.getElementById('stockStatsMeta').innerText =
+        `${stats.formula}. Rows counted: ${stats.rowsCounted}. Total expended: ${formatUnits(stats.totalExpended)}. Returned: ${formatUnits(stats.totalReturned)}.`;
+
+      const rows = stats.items && stats.items.length ? stats.items : [];
+      document.getElementById('stockMovementRows').innerHTML = rows.length
+        ? rows.map(item => `
+            <tr>
+              <td>${escapeText(item.item)}</td>
+              <td class="text-end">${formatUnits(item.received)}</td>
+              <td class="text-end">${formatUnits(item.issued)}</td>
+              <td class="text-end">${formatUnits(item.expended)}</td>
+              <td class="text-end">${formatUnits(item.returned)}</td>
+              <td class="text-end fw-semibold">${formatUnits(item.balance)}</td>
+            </tr>
+          `).join('')
+        : '<tr><td colspan="6" class="text-center text-muted">No receipt or expenditure rows have been logged yet / لم يتم تسجيل أي صفوف استلام أو صرف بعد.</td></tr>';
+    }
+
+    function loadTjetReceiptStats() {
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(renderTjetReceiptStats)
+          .withFailureHandler(err => renderTjetReceiptStats({ success: false, error: (err.message || err).toString() }))
+          .getTjetReceiptStats();
+      } else {
+        renderTjetReceiptStats({
+          success: true,
+          totalReceived: 0,
+          totalExpended: 0,
+          totalReturned: 0,
+          expendedThisMonth: 0,
+          balance: 0,
+          rowsCounted: 0,
+          formula: 'Balance = Received - Expended + Returned',
+          items: []
+        });
+      }
+    }
+
     document.getElementById('tjetReceiptForm').onsubmit = function(e){
       e.preventDefault();
       const data = Object.fromEntries(new FormData(e.target).entries());
@@ -91,11 +223,15 @@
         timestamp: new Date().toISOString(),
         date: data.date || '',
         teamNo: data.teamNo || '',
+        receivedItemCode: data.receivedItemCode || '',
+        receivedMovementType: data.receivedMovementType || 'RECEIVED',
         received: data.received || '',
         receivedQty: data.receivedQty || '',
         recipientName: data.recipientName || '',
+        expendedItemCode: data.expendedItemCode || '',
         expended: data.expended || '',
         expendedQty: data.expendedQty || '',
+        returnedItemCode: data.returnedItemCode || '',
         returned: data.returned || '',
         returnedQty: data.returnedQty || '',
         typesDestroyed: data.typesDestroyed || '',
@@ -104,13 +240,21 @@
       };
       if(typeof google !== 'undefined' && google.script && google.script.run){
         google.script.run.withSuccessHandler(res=>{
-          if(res && res.success){ showCustomModal('Saved', 'Receipt & Expenditure saved. Ref: ' + (res.ref||'n/a'), 'success', res.pdfUrl); document.getElementById('tjetReceiptForm').reset(); }
-          else showCustomModal('Save failed', (res&&res.error)||'Unknown error', 'error');
+          if(res && res.success){ showCustomModal('Saved / تم الحفظ', 'Receipt & Expenditure saved / تم حفظ الاستلام والصرف. Ref: ' + (res.ref||'n/a'), 'success', res.pdfUrl); document.getElementById('tjetReceiptForm').reset(); loadTjetReceiptStats(); }
+          else showCustomModal('Save failed / فشل الحفظ', (res&&res.error)||'Unknown error', 'error');
         }).withFailureHandler(err=>showCustomModal('Error', (err.message||err).toString(), 'error')).processTJETReceiptAndExpenditure(payload);
       } else {
         alert('Not running in GAS environment.');
       }
     };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadTjetReceiptStats);
+      document.addEventListener('DOMContentLoaded', loadTjetItemMaster);
+    } else {
+      loadTjetReceiptStats();
+      loadTjetItemMaster();
+    }
     </script>
   <script>
   // Router removed; shared scripts included below

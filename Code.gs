@@ -22,6 +22,37 @@ const RESPONSE_SHEETS = {
   TJET_RECEIPT_EXPENDITURE: ['TJET_Receipt_and_Expenditure_Form_Response']
 };
 
+const TJET_ITEM_MASTER_SHEET = 'TJET_Item_Master';
+const TJET_STOCK_LEDGER_SHEET = 'TJET_Stock_Ledger';
+
+const TJET_ITEM_MASTER_HEADERS = [
+  'Item_Code',
+  'Item_Name',
+  'Category',
+  'Unit',
+  'Active',
+  'Minimum_Stock',
+  'Notes'
+];
+
+const TJET_STOCK_LEDGER_HEADERS = [
+  'Transaction_ID',
+  'Timestamp',
+  'Date',
+  'Item_Code',
+  'Item_Name',
+  'Category',
+  'Movement_Type',
+  'Quantity',
+  'Team_No',
+  'Recipient',
+  'Reference_Doc',
+  'Reason',
+  'Submitted_By',
+  'Created_At',
+  'Status'
+];
+
 /**
  * Serves the HTML file to the browser dynamically based on URL parameters.
  * Handles the EOD Web Portal page list:
@@ -119,6 +150,38 @@ function getRequiredSheet(ss, sheetNames) {
     if (sheet) return sheet;
   }
   throw new Error("Response sheet not found. Tried: " + names.join(', '));
+}
+
+function ensureSheetWithHeaders(ss, sheetName, headers) {
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+  }
+
+  if (sheet.getMaxColumns() < headers.length) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
+  }
+
+  const existing = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+  const needsHeaders = headers.some(function(header, index) {
+    return String(existing[index] || '').trim() !== header;
+  });
+
+  if (needsHeaders) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setWrap(true);
+    sheet.setFrozenRows(1);
+  }
+
+  return sheet;
+}
+
+function ensureTjetInventorySheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return {
+    itemMaster: ensureSheetWithHeaders(ss, TJET_ITEM_MASTER_SHEET, TJET_ITEM_MASTER_HEADERS),
+    ledger: ensureSheetWithHeaders(ss, TJET_STOCK_LEDGER_SHEET, TJET_STOCK_LEDGER_HEADERS)
+  };
 }
 
 function getSubmittedBy() {
@@ -972,7 +1035,7 @@ function processTJETReceiptAndExpenditure(e) {
   try {
     var timestamp = new Date();
     var named = (e && e.namedValues) ? e.namedValues : (e || {});
-    var teamNo = named.teamNo || named.TEAM_NO || named['TEAM #'] || named.Team || 'TEAM';
+    var teamNo = getNamedValue(named, ['teamNo', 'TEAM_NO', 'TEAM #', 'Team No', 'Team']) || 'TEAM';
     var docRef = getNextDocRef('TJET_REC_EXP', teamNo);
 
     // Repaired case-insensitive fallback mapping helper
@@ -983,9 +1046,9 @@ function processTJETReceiptAndExpenditure(e) {
           return Array.isArray(named[k]) ? named[k].join(', ') : named[k];
         }
         // Fallback checks for camelCase vs snake_case mismatches
-        var lowerK = k.toLowerCase().replace(/_/g, '');
+        var lowerK = normalizeNamedFieldKey(k);
         for (var key in named) {
-          var lowerKey = key.toLowerCase().replace(/_/g, '');
+          var lowerKey = normalizeNamedFieldKey(key);
           if (lowerK === lowerKey && named[key] !== undefined && named[key] !== null) {
             return Array.isArray(named[key]) ? named[key].join(', ') : named[key];
           }
@@ -1014,10 +1077,321 @@ function processTJETReceiptAndExpenditure(e) {
     ];
 
     sheet.appendRow(row);
+    const ledgerRowsCreated = appendTjetStockLedgerMovements(named, docRef, timestamp);
     Logger.log('processTJETReceiptAndExpenditure appended successfully: %s', JSON.stringify(row));
-    return { success: true, ref: docRef, pdfUrl: pdfUrl };
+    return { success: true, ref: docRef, pdfUrl: pdfUrl, ledgerRowsCreated: ledgerRowsCreated };
   } catch (err) {
     Logger.log('processTJETReceiptAndExpenditure error: %s', err.toString());
+    return { success: false, error: err.toString() };
+  }
+}
+
+function parseQuantity(value) {
+  const text = String(value === undefined || value === null ? '' : value).replace(/,/g, '').trim();
+  const number = Number(text);
+  return isNaN(number) ? 0 : number;
+}
+
+function normalizeItemName(value) {
+  return String(value || '').trim() || 'Unspecified';
+}
+
+function normalizeNamedFieldKey(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function dateIsCurrentMonth(value, now) {
+  if (!value) return false;
+  let date = value;
+  if (!(Object.prototype.toString.call(date) === '[object Date]' && !isNaN(date.getTime()))) {
+    date = new Date(String(value));
+  }
+  if (isNaN(date.getTime())) return false;
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function getTjetItemMaster() {
+  try {
+    const sheets = ensureTjetInventorySheets();
+    const values = sheets.itemMaster.getDataRange().getValues();
+    const items = [];
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      const code = String(row[0] || '').trim();
+      const name = String(row[1] || '').trim();
+      const active = row[4] === true || String(row[4] || '').toUpperCase() === 'TRUE' || row[4] === '';
+      if (!code && !name) continue;
+      if (!active) continue;
+      items.push({
+        code: code || name,
+        name: name || code,
+        category: String(row[2] || '').trim(),
+        unit: String(row[3] || 'Units').trim(),
+        minimumStock: parseQuantity(row[5]),
+        notes: String(row[6] || '').trim()
+      });
+    }
+
+    return { success: true, items: items };
+  } catch (err) {
+    return { success: false, error: err.toString(), items: [] };
+  }
+}
+
+function lookupTjetItem(itemCode, itemName) {
+  const sheets = ensureTjetInventorySheets();
+  const values = sheets.itemMaster.getDataRange().getValues();
+  const codeTarget = String(itemCode || '').trim();
+  const nameTarget = String(itemName || '').trim();
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const code = String(row[0] || '').trim();
+    const name = String(row[1] || '').trim();
+    if ((codeTarget && code === codeTarget) || (nameTarget && name === nameTarget)) {
+      return {
+        code: code || codeTarget || nameTarget,
+        name: name || nameTarget || codeTarget,
+        category: String(row[2] || '').trim(),
+        unit: String(row[3] || 'Units').trim()
+      };
+    }
+  }
+
+  return {
+    code: codeTarget,
+    name: normalizeItemName(nameTarget || codeTarget),
+    category: '',
+    unit: 'Units'
+  };
+}
+
+function getNamedValue(named, keys) {
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (named[key] !== undefined && named[key] !== null) {
+      return Array.isArray(named[key]) ? named[key].join(', ') : named[key];
+    }
+
+    const lowerKey = normalizeNamedFieldKey(key);
+    for (const namedKey in named) {
+      const lowerNamedKey = normalizeNamedFieldKey(namedKey);
+      if (lowerKey === lowerNamedKey && named[namedKey] !== undefined && named[namedKey] !== null) {
+        return Array.isArray(named[namedKey]) ? named[namedKey].join(', ') : named[namedKey];
+      }
+    }
+  }
+  return '';
+}
+
+function makeTjetStockTransactionId(docRef, movementType, index) {
+  return [
+    docRef || 'TJET-REC-EXP',
+    movementType || 'MOVE',
+    String(index || 1).padStart(2, '0')
+  ].join('_');
+}
+
+function appendTjetStockLedgerMovements(named, docRef, timestamp) {
+  const sheets = ensureTjetInventorySheets();
+  const submittedBy = getSubmittedBy();
+  const date = getNamedValue(named, ['DATE', 'Date', 'date']);
+  const teamNo = getNamedValue(named, ['TEAM_NO', 'Team No', 'teamNo']);
+  const recipient = getNamedValue(named, ['RECIPIENT_NAME', 'Recipient Name', 'Recipient', 'recipientName']);
+  const reason = getNamedValue(named, ['REASON', 'Reason', 'reason', 'typesDestroyed', 'TYPES_DESTROYED']);
+
+  const candidates = [
+    {
+      movementType: getNamedValue(named, ['receivedMovementType', 'RECEIVED_MOVEMENT_TYPE']) || 'RECEIVED',
+      itemCode: getNamedValue(named, ['receivedItemCode', 'RECEIVED_ITEM_CODE', 'itemCode']),
+      itemName: getNamedValue(named, ['RECEIVED', 'Received', 'received']),
+      quantity: parseQuantity(getNamedValue(named, ['RECEIVED_QTY', 'Received Qty', 'RECEIVED QTY', 'receivedQty']))
+    },
+    {
+      movementType: 'EXPENDED',
+      itemCode: getNamedValue(named, ['expendedItemCode', 'EXPENDED_ITEM_CODE', 'itemCode']),
+      itemName: getNamedValue(named, ['EXPENDED', 'Expended', 'expended']),
+      quantity: parseQuantity(getNamedValue(named, ['EXPENDED_QTY', 'Expended Qty', 'EXPENDED_QTY', 'expendedQty']))
+    },
+    {
+      movementType: 'RETURNED',
+      itemCode: getNamedValue(named, ['returnedItemCode', 'RETURNED_ITEM_CODE', 'itemCode']),
+      itemName: getNamedValue(named, ['RETURNED', 'Returned', 'returned']),
+      quantity: parseQuantity(getNamedValue(named, ['RETURNED_QTY', 'Returned Qty', 'RETURNED_QTY', 'returnedQty']))
+    }
+  ];
+
+  const rows = [];
+  candidates.forEach(function(candidate, idx) {
+    if (!candidate.quantity) return;
+    const item = lookupTjetItem(candidate.itemCode, candidate.itemName);
+    rows.push([
+      makeTjetStockTransactionId(docRef, candidate.movementType, idx + 1),
+      timestamp,
+      date,
+      item.code,
+      item.name,
+      item.category,
+      candidate.movementType,
+      candidate.quantity,
+      teamNo,
+      recipient,
+      docRef,
+      reason,
+      submittedBy,
+      timestamp,
+      'Active'
+    ]);
+  });
+
+  if (rows.length) {
+    sheets.ledger.getRange(sheets.ledger.getLastRow() + 1, 1, rows.length, TJET_STOCK_LEDGER_HEADERS.length).setValues(rows);
+  }
+
+  return rows.length;
+}
+
+function syncTjetLegacyReceiptRowsToLedger() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = ensureTjetInventorySheets();
+  const legacySheet = getRequiredSheet(ss, RESPONSE_SHEETS.TJET_RECEIPT_EXPENDITURE);
+  const ledgerValues = sheets.ledger.getDataRange().getValues();
+  const migratedRefs = {};
+
+  for (let i = 1; i < ledgerValues.length; i++) {
+    const ref = String(ledgerValues[i][10] || '').trim();
+    if (ref) migratedRefs[ref] = true;
+  }
+
+  const legacyValues = legacySheet.getDataRange().getValues();
+  for (let i = 0; i < legacyValues.length; i++) {
+    const row = legacyValues[i];
+    const docRef = String(row[0] || '').trim();
+    if (!docRef || docRef === 'Doc_Ref_#' || docRef.indexOf('TJET-REC-EXP') !== 0 || migratedRefs[docRef]) continue;
+
+    const hasTeamColumn = /^T(EAM)?\d*/i.test(String(row[3] || '').trim());
+    const named = hasTeamColumn ? {
+      date: row[2],
+      teamNo: row[3],
+      received: row[4],
+      receivedQty: row[5],
+      recipientName: row[6],
+      expended: row[7],
+      expendedQty: row[8],
+      returned: row[9],
+      returnedQty: row[10],
+      typesDestroyed: row[11]
+    } : {
+      date: row[2],
+      received: row[3],
+      receivedQty: row[4],
+      recipientName: row[5],
+      expended: row[6],
+      expendedQty: row[7],
+      returned: row[8],
+      returnedQty: row[9],
+      typesDestroyed: row[10]
+    };
+
+    appendTjetStockLedgerMovements(named, docRef, row[1] || new Date());
+    migratedRefs[docRef] = true;
+  }
+}
+
+function getTjetReceiptStats() {
+  try {
+    syncTjetLegacyReceiptRowsToLedger();
+    const sheets = ensureTjetInventorySheets();
+    const values = sheets.ledger.getDataRange().getValues();
+    const now = new Date();
+    const itemMap = {};
+    let totalReceived = 0;
+    let totalExpended = 0;
+    let totalReturned = 0;
+    let totalPurchased = 0;
+    let totalIssued = 0;
+    let totalAdjustmentPositive = 0;
+    let totalAdjustmentNegative = 0;
+    let totalLostDamaged = 0;
+    let expendedThisMonth = 0;
+    let lastUpdated = '';
+    let rowsCounted = 0;
+
+    function ensureItem(name) {
+      const key = normalizeItemName(name);
+      if (!itemMap[key]) {
+        itemMap[key] = { item: key, received: 0, issued: 0, expended: 0, returned: 0, balance: 0 };
+      }
+      return itemMap[key];
+    }
+
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      const status = String(row[14] || '').trim();
+      if (status && status.toLowerCase() !== 'active') continue;
+
+      const date = row[2];
+      const itemName = normalizeItemName(row[4] || row[3]);
+      const movementType = String(row[6] || '').trim().toUpperCase();
+      const quantity = parseQuantity(row[7]);
+      if (!movementType || !quantity) continue;
+
+      const item = ensureItem(itemName);
+      if (movementType === 'PURCHASED') {
+        totalPurchased += quantity;
+        item.received += quantity;
+      } else if (movementType === 'RECEIVED') {
+        totalReceived += quantity;
+        item.received += quantity;
+      } else if (movementType === 'RETURNED') {
+        totalReturned += quantity;
+        item.returned += quantity;
+      } else if (movementType === 'EXPENDED') {
+        totalExpended += quantity;
+        item.expended += quantity;
+        if (dateIsCurrentMonth(date, now)) expendedThisMonth += quantity;
+      } else if (movementType === 'ISSUED_TO_TEAM') {
+        totalIssued += quantity;
+        item.issued = (item.issued || 0) + quantity;
+      } else if (movementType === 'ADJUSTMENT_POSITIVE') {
+        totalAdjustmentPositive += quantity;
+        item.received += quantity;
+      } else if (movementType === 'ADJUSTMENT_NEGATIVE') {
+        totalAdjustmentNegative += quantity;
+        item.expended += quantity;
+      } else if (movementType === 'DAMAGED' || movementType === 'LOST') {
+        totalLostDamaged += quantity;
+        item.expended += quantity;
+      }
+
+      rowsCounted++;
+      lastUpdated = row[1] || lastUpdated;
+    }
+
+    const items = Object.keys(itemMap).sort().map(function(key) {
+      const item = itemMap[key];
+      item.balance = item.received - item.issued - item.expended + item.returned;
+      return item;
+    });
+
+    return {
+      success: true,
+      totalReceived: totalPurchased + totalReceived,
+      totalExpended: totalExpended,
+      totalReturned: totalReturned,
+      totalPurchased: totalPurchased,
+      totalIssued: totalIssued,
+      totalAdjustmentPositive: totalAdjustmentPositive,
+      totalAdjustmentNegative: totalAdjustmentNegative,
+      totalLostDamaged: totalLostDamaged,
+      expendedThisMonth: expendedThisMonth,
+      balance: (totalPurchased + totalReceived + totalReturned + totalAdjustmentPositive) - (totalExpended + totalIssued + totalAdjustmentNegative + totalLostDamaged),
+      rowsCounted: rowsCounted,
+      lastUpdated: lastUpdated ? String(lastUpdated) : '',
+      formula: 'Balance = Purchased + Received + Returned + Positive Adjustments - Expended - Issued - Negative Adjustments - Lost/Damaged',
+      items: items
+    };
+  } catch (err) {
     return { success: false, error: err.toString() };
   }
 }

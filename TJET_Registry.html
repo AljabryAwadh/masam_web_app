@@ -14,12 +14,8 @@
     <div class="page-header shadow-sm">
         <div class="row align-items-center">
             <div class="col-md-8">
-                <span class="badge bg-primary px-3 py-2 mb-2 text-uppercase fw-bold">Operations Hub</span>
                 <h1 class="fw-bold mb-1">TJET Registry / سجل العمليات</h1>
-                <p class="text-white-50 mb-0">Comprehensive record keeping and reference registry for all TJET operations.</p>
-            </div>
-            <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                <button class="btn btn-primary font-semibold shadow-sm">+ Register New Mission</button>
+                <p class="text-white-50 mb-0">Comprehensive record keeping and reference registry for all TJET operations / سجل مرجعي شامل لجميع عمليات TJET.</p>
             </div>
         </div>
     </div>
@@ -29,7 +25,7 @@
     <!-- Inline TJET Registry Form -->
     <div class="mt-4">
       <div class="section mb-4 bg-white p-4 rounded shadow-sm">
-        <h4 class="mb-3">TJET Registry Task</h4>
+        <h4 class="mb-3">TJET Registry Task / مهمة سجل TJET</h4>
         <form id="tjetForm">
           <div class="row g-3 mb-2">
             <div class="col-md-3">
@@ -59,12 +55,12 @@
           <h5>TJET Operations Details / تفاصيل عملية TJET</h5>
           <div id="tjetItems" class="mb-3"></div>
           <div class="mb-3">
-            <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="addTjetRow()">+ Add TJET Item</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearTjetRows()">Clear Items</button>
+            <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="addTjetRow()">+ Add TJET Item / إضافة عنصر TJET</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearTjetRows()">Clear Items / مسح العناصر</button>
           </div>
           <div class="d-flex justify-content-between">
-            <button type="submit" class="btn btn-primary">Submit Registry</button>
-            <button type="button" class="btn btn-outline-secondary" onclick="tjetReset()">Reset</button>
+            <button type="submit" class="btn btn-primary">Submit Registry / إرسال السجل</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="tjetReset()">Reset / إعادة تعيين</button>
           </div>
         </form>
       </div>
@@ -72,17 +68,45 @@
 
     <script>
 function addTjetRow(){
-  const id=Date.now();
-  const html=`<div class="row g-2 align-items-center mb-2 tjet-row" id="tjet_${id}">
-    <div class="col-2"><input type="text" class="form-control" placeholder="SITE FOR TEAM#" data-field="siteForTeam"></div>
-    <div class="col-2"><input type="text" class="form-control" placeholder="EO GPS_N_DMS" data-field="gpsN" value="16.00.00.00"></div>
-    <div class="col-2"><input type="text" class="form-control" placeholder="EO GPS_E_DMS" data-field="gpsE" value="042.00.00.00"></div>
-    <div class="col-2"><input type="text" class="form-control" placeholder="EO Type" data-field="eoType"></div>
-    <div class="col-3"><input type="text" class="form-control" placeholder="EO Description" data-field="eoDesc"></div>
-    <div class="col-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="document.getElementById('tjet_${id}').remove()">X</button></div>
-    <div class="col-2 mt-2"><input type="text" class="form-control" placeholder="TJET TYPE" data-field="tjetType"></div>
-    <div class="col-2 mt-2"><input type="number" class="form-control" placeholder="TJET QTY" data-field="tjetQty" min="0"></div>
-    <div class="col-4 mt-2"><input type="text" class="form-control" placeholder="Remarks" data-field="remarks"></div>
+  const id=Date.now()+Math.floor(Math.random()*1000);
+  const html=`<div class="tjet-row border rounded p-3 mb-3 bg-light" id="tjet_${id}">
+    <div class="row g-3 align-items-end">
+      <div class="col-12 col-sm-6 col-lg-3">
+        <label class="form-label">Site For Team # / موقع الفريق رقم</label>
+        <input type="text" class="form-control" data-field="siteForTeam">
+      </div>
+      <div class="col-12 col-sm-6 col-lg-3">
+        <label class="form-label">EO GPS N DMS / إحداثيات الذخيرة شمال</label>
+        <input type="text" class="form-control" data-field="gpsN" value="16.00.00.00">
+      </div>
+      <div class="col-12 col-sm-6 col-lg-3">
+        <label class="form-label">EO GPS E DMS / إحداثيات الذخيرة شرق</label>
+        <input type="text" class="form-control" data-field="gpsE" value="042.00.00.00">
+      </div>
+      <div class="col-12 col-sm-6 col-lg-3">
+        <label class="form-label">EO Type / نوع الذخيرة</label>
+        <input type="text" class="form-control" data-field="eoType">
+      </div>
+      <div class="col-12 col-lg-4">
+        <label class="form-label">EO Description / وصف الذخيرة</label>
+        <input type="text" class="form-control" data-field="eoDesc">
+      </div>
+      <div class="col-12 col-sm-6 col-lg-3">
+        <label class="form-label">TJET Type / نوع TJET</label>
+        <input type="text" class="form-control" data-field="tjetType">
+      </div>
+      <div class="col-12 col-sm-6 col-lg-2">
+        <label class="form-label">TJET Quantity / كمية TJET</label>
+        <input type="number" class="form-control" data-field="tjetQty" min="0">
+      </div>
+      <div class="col-12 col-lg-3">
+        <label class="form-label">Remarks / ملاحظات</label>
+        <input type="text" class="form-control" data-field="remarks">
+      </div>
+      <div class="col-12 text-end">
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="document.getElementById('tjet_${id}').remove()">Delete / حذف</button>
+      </div>
+    </div>
   </div>`;
   document.getElementById('tjetItems').insertAdjacentHTML('beforeend',html);
 }
@@ -105,7 +129,7 @@ document.addEventListener('DOMContentLoaded', function(){
     data.items=JSON.stringify(items);
     if(typeof google!=='undefined'&&google.script&&google.script.run){
       google.script.run.withSuccessHandler(res=>{
-        if(res&&res.success){showCustomModal('Saved', 'Registry saved. Ref: '+res.ref, 'success', res.pdfUrl); tjetReset();} else {showCustomModal('Save failed', (res&&res.error)||'Unknown error', 'error');}
+        if(res&&res.success){showCustomModal('Saved / تم الحفظ', 'Registry saved / تم حفظ السجل. Ref: '+res.ref, 'success', res.pdfUrl); tjetReset();} else {showCustomModal('Save failed / فشل الحفظ', (res&&res.error)||'Unknown error', 'error');}
       }).withFailureHandler(err=>showCustomModal('Error', err.toString(), 'error')).processTJET(data);
     } else {alert('Not running in GAS.');}
   };

@@ -8,64 +8,113 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: #f3f4f6; 
-            color: #1f2937; 
+        :root {
+            --masam-green: #0f4a24;
+            --masam-green-2: #1f7a38;
+            --masam-red: #c84c32;
+            --masam-blue: #2385c7;
+            --masam-gold: #d6a622;
+            --masam-ink: #173322;
+            --masam-bg: #f4f8f3;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background:
+                linear-gradient(180deg, rgba(15, 74, 36, 0.08), rgba(255,255,255,0) 280px),
+                var(--masam-bg);
+            color: var(--masam-ink);
+        }
+        .navbar {
+            background: linear-gradient(90deg, var(--masam-green) 0%, #123f22 72%, var(--masam-red) 100%) !important;
+            border-bottom: 4px solid var(--masam-gold);
+        }
+        .navbar-brand {
+            color: #fff !important;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .brand-mark {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: #fff;
+            color: var(--masam-green);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.82rem;
+            box-shadow: inset 0 0 0 2px rgba(31, 122, 56, 0.2);
         }
         .nav-link { font-weight: 500; transition: color 0.15s ease-in-out; }
-        .section-header { 
-            background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%); 
-            color: white; 
-            padding: 14px 20px; 
-            border-radius: 8px 8px 0 0; 
-            font-weight: 600; 
-            margin-top: 25px; 
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+        .nav-link:hover,
+        .nav-link.active {
+            color: #fff !important;
+            text-decoration: underline;
+            text-decoration-color: var(--masam-gold);
+            text-underline-offset: 6px;
         }
-        .form-container { 
-            background: white; 
-            border-radius: 16px; 
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); 
-            padding: 40px; 
-            margin-bottom: 60px; 
+        .section-header {
+            background: linear-gradient(135deg, var(--masam-green) 0%, var(--masam-green-2) 76%, var(--masam-blue) 100%);
+            color: white;
+            padding: 14px 20px;
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+            margin-top: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
         }
-        .btn-primary { 
-            background: #1d4ed8; 
-            border: none; 
-            padding: 12px; 
-            font-weight: 600; 
+        .form-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            margin-bottom: 60px;
+            border-top: 4px solid var(--masam-green-2);
+        }
+        .btn-primary {
+            background: var(--masam-green-2);
+            border: none;
+            padding: 12px;
+            font-weight: 600;
             transition: all 0.2s;
         }
-        .btn-primary:hover { 
-            background-color: #1e40af; 
+        .btn-primary:hover {
+            background-color: var(--masam-green);
             transform: translateY(-1px);
         }
-        #loader { 
-            display: none; 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            background: rgba(15, 23, 42, 0.85); 
-            z-index: 9999; 
-            justify-content: center; 
-            align-items: center; 
-            flex-direction: column; 
+        #loader {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
             backdrop-filter: blur(4px);
         }
-        .erw-row { 
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-            border-left: 5px solid #2563eb; 
+        .erw-row {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 5px solid #2563eb;
         }
         .erw-row:hover {
             box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
         }
-        .form-label { 
-            font-size: 0.875rem; 
-            margin-bottom: 0.4rem; 
+        .form-label {
+            font-size: 0.875rem;
+            margin-bottom: 0.4rem;
             color: #4b5563;
+        }
+        .table-responsive {
+            max-width: 100%;
+            overflow-x: auto;
+        }
+        .table-responsive > .table {
+            min-width: 620px;
         }
         /* Custom Dialog Modals */
         .custom-modal {
@@ -105,8 +154,8 @@
             border: 1px dashed #cbd5e1;
         }
         .crud-panel {
-            border: 1px solid #dbeafe;
-            background: #eff6ff;
+            border: 1px solid rgba(31, 122, 56, 0.22);
+            background: #f0f7ee;
             border-radius: 8px;
             padding: 18px;
             margin-bottom: 24px;
@@ -126,9 +175,9 @@
 <body>
 
 <!-- Global Portal Navigation Bar -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3 mb-4 shadow-sm">
+<nav class="navbar navbar-expand-lg navbar-dark px-3 mb-4 shadow-sm">
   <div class="container-fluid">
-    <span class="navbar-brand fw-bold text-primary">EOD Web Portal</span>
+    <span class="navbar-brand fw-bold"><span class="brand-mark">M</span> MASAM Web Portal</span>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
       <span class="navbar-toggler-icon"></span>
     </button>
@@ -189,7 +238,7 @@
         </div>
 
         <div id="editBanner" class="edit-banner"></div>
-        
+
         <form id="eodForm">
             <input type="hidden" name="docRef" id="docRef">
             <!-- SECTION 1: TASK DETAILS -->
@@ -239,13 +288,13 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">GPS Control Point N / نقطة السيطرة N:</label>
-                        <input type="text" name="gpsN" class="form-control coord-val" placeholder="16.21.20.61" 
+                        <input type="text" name="gpsN" class="form-control coord-val" placeholder="16.21.20.61"
                             pattern="^(1[2-8])\.([0-5]\d)\.([0-5]\d(\.\d+)?)$" title="Format: DD.MM.SS.SS (e.g. 16.21.20.61)">
                         <div class="coord-hint">Format: DD.MM.SS.SS (e.g., 16.21.20.61)</div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">GPS Control Point E / نقطة السيطرة E:</label>
-                        <input type="text" name="gpsE" class="form-control coord-val" placeholder="042.52.35.58" 
+                        <input type="text" name="gpsE" class="form-control coord-val" placeholder="042.52.35.58"
                             pattern="^(0?4[2-9]|0?5[0-4])\.([0-5]\d)\.([0-5]\d(\.\d+)?)$" title="Format: DDD.MM.SS.SS (e.g. 042.52.35.58)">
                         <div class="coord-hint">Format: DDD.MM.SS.SS (e.g., 042.52.35.58)</div>
                     </div>
@@ -298,7 +347,7 @@
                 <span>3. ERW Finds / الذخائر المكتشفة يومياً</span>
                 <button type="button" class="btn btn-sm btn-light text-primary fw-bold shadow-sm" onclick="addErwRow()">+ Add Find / إضافة ذخيرة</button>
             </div>
-            
+
             <div class="row g-2 mb-2 d-none d-md-flex px-3 text-secondary fw-bold mt-2 small text-uppercase">
                 <div class="col-md-2">EO Lat (N)</div>
                 <div class="col-md-2">EO Long (E)</div>
@@ -350,7 +399,7 @@
                         <div class="col-md-1 text-center">
                             <button type="button" class="btn btn-outline-danger btn-sm w-100 py-2" onclick="deleteRow('initial')">Delete</button>
                         </div>
-                        
+
                         <div class="col-md-8 mt-2 pt-2 border-top">
                             <label class="small fw-bold text-secondary">Upload Photo / صورة الذخيرة (Auto-resizes):</label>
                             <input type="file" class="form-control form-control-sm eoFile" accept="image/*" onchange="handleImagePreview(event, 'initial')">
@@ -502,7 +551,7 @@
         const row = document.getElementById(`row_${id}`);
         const rem = row.querySelector('.removed');
         const left = row.querySelector('.leftOnSite');
-        
+
         if (type === 'rem' && rem.checked) {
             left.checked = false;
         } else if (type === 'left' && left.checked) {
@@ -517,7 +566,7 @@
         const file = event.target.files[0];
         const previewContainer = document.getElementById(`preview_container_${id}`);
         const imgElement = document.getElementById(`img_prev_${id}`);
-        
+
         if (file) {
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -578,7 +627,7 @@
                     <div class="col-md-1 text-center">
                         <button type="button" class="btn btn-outline-danger btn-sm w-100 py-2" onclick="deleteRow(${id})">Delete</button>
                     </div>
-                    
+
                     <div class="col-md-8 mt-2 pt-2 border-top">
                         <label class="small fw-bold text-secondary">Upload Photo / صورة الذخيرة (Auto-resizes):</label>
                         <input type="file" class="form-control form-control-sm eoFile" accept="image/*" onchange="handleImagePreview(event, ${id})">
@@ -690,8 +739,8 @@
     function resetFullForm(clearEditMode = true) {
         document.getElementById('eodForm').reset();
         document.getElementById('erwList').innerHTML = "";
-        addErwRow(); 
-        
+        addErwRow();
+
         const today = new Date().toISOString().split('T')[0];
         document.getElementsByName('date')[0].value = today;
         document.getElementsByName('taskStartDate')[0].value = today;
@@ -700,7 +749,7 @@
 
     document.getElementById('eodForm').onsubmit = async function(e) {
         e.preventDefault();
-        
+
         const rowElements = Array.from(document.querySelectorAll('.erw-row'));
         const activeErwRows = [];
         for (let row of rowElements) {
@@ -737,8 +786,8 @@
 
             if (!rem && !left) {
                 showCustomModal(
-                    "Validation Error / خطأ في التحقق", 
-                    "Please select either 'Removed' or 'Left on Site' for all registered ERW finds.", 
+                    "Validation Error / خطأ في التحقق",
+                    "Please select either 'Removed' or 'Left on Site' for all registered ERW finds.",
                     "error"
                 );
                 return;
@@ -779,8 +828,8 @@
                         if (res && res.success) {
                             const wasUpdate = Boolean(data.docRef);
                             showCustomModal(
-                                wasUpdate ? "Updated! / تم التحديث بنجاح" : "Success! / تم الإرسال بنجاح", 
-                                (wasUpdate ? "Worksheet updated successfully. Ref: " : "Worksheet submitted successfully. Unique Ref: ") + res.ref, 
+                                wasUpdate ? "Updated! / تم التحديث بنجاح" : "Success! / تم الإرسال بنجاح",
+                                (wasUpdate ? "Worksheet updated successfully. Ref: " : "Worksheet submitted successfully. Unique Ref: ") + res.ref,
                                 "success",
                                 res.pdfUrl
                             );
