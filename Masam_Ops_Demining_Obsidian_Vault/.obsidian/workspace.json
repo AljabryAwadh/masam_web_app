@@ -1,0 +1,203 @@
+{
+  "main": {
+    "id": "e3de5a7790851ac1",
+    "type": "split",
+    "children": [
+      {
+        "id": "650c441a90884769",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "33f78d89bbabb041",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "01_Projects/MASAM Web App - Master TODO.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "MASAM Web App - Master TODO"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "b44871a3280ddc0e",
+    "type": "split",
+    "children": [
+      {
+        "id": "22eeb55ff7be2817",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "d75a7c58bc8ecdaf",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "876b0b0a52beff2b",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "aea28f1403918eb1",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 268.5
+  },
+  "right": {
+    "id": "68ff325bf3f06a40",
+    "type": "split",
+    "children": [
+      {
+        "id": "6b9e87dbf73c0f01",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c14f0dd62cc9a7d1",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "01_Projects/MASAM Web App - Master TODO.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for MASAM Web App - Master TODO"
+            }
+          },
+          {
+            "id": "593102651b63d7ae",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "01_Projects/MASAM Web App - Master TODO.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from MASAM Web App - Master TODO"
+            }
+          },
+          {
+            "id": "09e1d3ab370bf973",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "21713b438a409d7f",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "c951070474d5a2b5",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "01_Projects/MASAM Web App - Master TODO.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of MASAM Web App - Master TODO"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "33f78d89bbabb041",
+  "lastOpenFiles": [
+    "01_Projects/MASAM Web App - DWS Form.md",
+    "01_Projects/MASAM Web App - Live Sheet Headers.md",
+    "01_Projects/MASAM Web App - Master TODO.md",
+    "01_Projects/MASAM Web App - Decisions.md",
+    "README.md",
+    "Templates/Daily Note Template.md",
+    "Daily Notes/2026-06-10.md",
+    "Templates",
+    "Daily Notes",
+    "04_Archive",
+    "03_Resources",
+    "02_Areas",
+    "01_Projects",
+    "00_Inbox"
+  ]
+}
