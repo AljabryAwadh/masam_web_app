@@ -2,13 +2,14 @@
 
 ## Current Project State
 
-Last updated: 2026-06-11
+Last updated: 2026-06-19
 
-Project memory folder: `D:\Awadh_AI_Vault\01_Projects`
-Code workspace: `D:\Masam files\Masam_Ops_Room_PC\google sheets project\DWS_Form`
+Project memory folder: `G:\google sheets project\Masam_Ops_Demining_Project\Masam_Ops_Demining_Obsidian_Vault\01_Projects`
+Code workspace: `G:\google sheets project\Masam_Ops_Demining_Project`
+Previous workspace (retired): `D:\Masam files\Masam_Ops_Room_PC\google sheets project\DWS_Form`
 GitHub repository: `https://github.com/AljabryAwadh/masam_web_app.git`
 Current branch: `master`
-Latest pushed commit: `67588a8 Add TJET stock ledger form`
+Apps Script project ID: `1tqbg7ZbAEBbTI6jVgrxdiYgcitTM6GHi6DAqEFf1u-tR8trxZ8RnZReM`
 Current GAS deployment: `@30 - Masam v12 TJET stock ledger form`
 Current web app URL: `https://script.google.com/macros/s/AKfycby9QGFSEuwrAAIR4UdFuOn1C6Fc1Wrmfxnb0-BjyW5H_Nj6MZNkq9smHILMY3HuCAhMCA/exec`
 
@@ -16,7 +17,7 @@ Important access decision: use `/exec` versioned deployment URLs. Do not use the
 
 ## Completed So Far
 
-- [x] Established `D:\Awadh_AI_Vault\01_Projects` as the project memory folder for MASAM web app notes.
+- [x] Established the in-project Obsidian vault as the canonical project memory folder.
 - [x] Confirmed the local Apps Script project workspace.
 - [x] Added local simulator support through `local-server.js` and `mock.js`.
 - [x] Standardized local routes for `Index`, `DWS`, `OHC`, `TJET_Registry`, and `TJET_Receipt_and_Expenditure`.

@@ -2,7 +2,7 @@
 
 ## 2026-06-11 - Use Awadh AI Vault As Canonical Project Memory
 
-Decision: All memory/status/planning notes for the MASAM web app project should live in `D:\Awadh_AI_Vault\01_Projects`.
+Decision: All memory/status/planning notes for the MASAM web app project live in `G:\google sheets project\Masam_Ops_Demining_Project\Masam_Ops_Demining_Obsidian_Vault\01_Projects`.
 
 Reason: This is the AI/project memory vault created for continuity across sessions. Future work should start by reviewing these notes.
 
@@ -27,12 +27,17 @@ Decision: The Apps Script web app manifest should use:
 
 Reason: The earlier `ANYONE` setting returned Google sign-in pages for users. `ANYONE_ANONYMOUS` allowed public `/exec` deployment URLs to serve the MASAM app directly.
 
-Current working deployment:
+Deployment `@28` was the working deployment when this decision was recorded:
 
 - `@28 - Masam v10 current app deployment`
 - `https://script.google.com/macros/s/AKfycbzzs3-h6j0zA7YBrhnroj7wqzcwu53pXv4YTWc8MvgkdmDJAW169r2Z2lho_bDlGAqV1A/exec`
 
 Do not use the `@HEAD` / test deployment as the public app link. It is read-only and has produced sign-in or unavailable-file behavior.
+
+Current deployment as of 2026-06-19:
+
+- `@30 - Masam v12 TJET stock ledger form`
+- `https://script.google.com/macros/s/AKfycby9QGFSEuwrAAIR4UdFuOn1C6Fc1Wrmfxnb0-BjyW5H_Nj6MZNkq9smHILMY3HuCAhMCA/exec`
 
 ## 2026-06-11 - Versioned `/exec` URLs Are The Public Links
 

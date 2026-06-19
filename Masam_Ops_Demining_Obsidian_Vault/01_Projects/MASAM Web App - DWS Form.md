@@ -2,16 +2,17 @@
 
 ## Project Snapshot
 
-Last updated: 2026-06-11
+Last updated: 2026-06-19
 
-- Workspace: `D:\Masam files\Masam_Ops_Room_PC\google sheets project\DWS_Form`
-- Project memory folder: `D:\Awadh_AI_Vault\01_Projects`
+- Workspace: `G:\google sheets project\Masam_Ops_Demining_Project`
+- Previous workspace (retired): `D:\Masam files\Masam_Ops_Room_PC\google sheets project\DWS_Form`
+- Project memory folder: `G:\google sheets project\Masam_Ops_Demining_Project\Masam_Ops_Demining_Obsidian_Vault\01_Projects`
 - App type: Google Apps Script web app with HTML frontend forms.
 - Local simulator: Node local server via `npm run dev`.
 - Deployment tool: `clasp`.
-- Current GitHub commit: `b6ce82c Allow public anonymous web app access`
-- Current GAS deployment: `@28 - Masam v10 current app deployment`
-- Current GAS URL: `https://script.google.com/macros/s/AKfycbzzs3-h6j0zA7YBrhnroj7wqzcwu53pXv4YTWc8MvgkdmDJAW169r2Z2lho_bDlGAqV1A/exec`
+- Apps Script project ID: `1tqbg7ZbAEBbTI6jVgrxdiYgcitTM6GHi6DAqEFf1u-tR8trxZ8RnZReM`
+- Current GAS deployment: `@30 - Masam v12 TJET stock ledger form`
+- Current GAS URL: `https://script.google.com/macros/s/AKfycby9QGFSEuwrAAIR4UdFuOn1C6Fc1Wrmfxnb0-BjyW5H_Nj6MZNkq9smHILMY3HuCAhMCA/exec`
 
 ## Active Forms
 
@@ -32,20 +33,20 @@ Last updated: 2026-06-11
 
 ## Current Working Tree State
 
-As of 2026-06-11:
+As of 2026-06-19:
 
-- Tracked source files are clean and pushed to GitHub.
-- Untracked local artifacts remain: `files/`, `project/`, and `sheets`.
-- These untracked artifacts appear accidental/empty and were intentionally not committed.
+- Local Apps Script source is byte-for-byte identical to the live Apps Script project.
+- The canonical local workspace is the `G:` drive path above.
+- Timestamped folders under `local_backup/` are archives only and must not be used for `clasp push`.
 
 ## Current Deployment State
 
 Current deployment:
 
-- Deployment ID: `AKfycbzzs3-h6j0zA7YBrhnroj7wqzcwu53pXv4YTWc8MvgkdmDJAW169r2Z2lho_bDlGAqV1A`
-- Version: `@28`
-- Description: `Masam v10 current app deployment`
-- Base URL: `https://script.google.com/macros/s/AKfycbzzs3-h6j0zA7YBrhnroj7wqzcwu53pXv4YTWc8MvgkdmDJAW169r2Z2lho_bDlGAqV1A/exec`
+- Deployment ID: `AKfycby9QGFSEuwrAAIR4UdFuOn1C6Fc1Wrmfxnb0-BjyW5H_Nj6MZNkq9smHILMY3HuCAhMCA`
+- Version: `@30`
+- Description: `Masam v12 TJET stock ledger form`
+- Base URL: `https://script.google.com/macros/s/AKfycby9QGFSEuwrAAIR4UdFuOn1C6Fc1Wrmfxnb0-BjyW5H_Nj6MZNkq9smHILMY3HuCAhMCA/exec`
 
 Verified pages:
 
@@ -133,4 +134,3 @@ Awadh-owned prerequisites are tracked in [[MASAM Web App - Master TODO]] under `
 ## Live Sheet Header Reference
 
 Live response sheet headers are documented in [[MASAM Web App - Live Sheet Headers]].
-
